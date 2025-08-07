@@ -2,17 +2,20 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>i, ω, Ω — 3D Yörünge Görselleştirme</title>
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background-color: black; }
-    .wrap { display: flex; flex-direction: column; height: 100vh; }
-    .panel { flex: 1; display: flex; flex-direction: column; border-top: 1px solid #333; }
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#000; }
+    body { overflow: hidden; }
+    /* Tam ekran, dikeyde tam 3 satır ve kaydırmasız */
+    .wrap { display: grid; grid-template-rows: repeat(3, 1fr); height: 100svh; }
+    .panel { display: grid; grid-template-rows: 1fr auto; border-top: 1px solid #222; min-height:0; }
     .panel:first-child { border-top: none; }
-    .canvas-holder { flex: 1; }
+    .canvas-holder { position: relative; min-height:0; }
     canvas { width: 100%; height: 100%; display: block; }
-    .controls { padding: 8px; background: #111; color: white; }
-    .label-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+    .controls { padding: 8px 12px; background: #0b0b0b; color: #eee; border-top: 1px solid #222; }
+    .label-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 6px; }
     input[type="range"] { width: 100%; }
     .legend { font-size: 12px; color: #aaa; }
   </style>
@@ -22,34 +25,49 @@
     <section class="panel">
       <div class="canvas-holder"><canvas id="canvas-i"></canvas></div>
       <div class="controls">
-        <div class="label-row"><strong>Eğiklik i</strong><span id="i-deg">45</span>°</div>
+        <div class="label-row"><strong>Eğiklik i</strong><span><span id="i-deg">45</span>°</span></div>
         <input id="slider-i" type="range" min="0" max="89" step="1" value="45" />
         <div class="legend">Yörünge düzleminin gökyüzü düzlemine göre eğimi.</div>
       </div>
     </section>
+
     <section class="panel">
       <div class="canvas-holder"><canvas id="canvas-omega"></canvas></div>
       <div class="controls">
-        <div class="label-row"><strong>Periapsis Argümanı ω</strong><span id="omega-deg">90</span>°</div>
+        <div class="label-row"><strong>Periapsis Argümanı ω</strong><span><span id="omega-deg">90</span>°</span></div>
         <input id="slider-omega" type="range" min="0" max="359" step="1" value="90" />
-        <div class="legend">Çıkış düğümünden periapse kadar olan açı.</div>
+        <div class="legend">Yörünge düzlemi içinde, çıkış düğümünden periapse kadar olan açı.</div>
       </div>
     </section>
+
     <section class="panel">
       <div class="canvas-holder"><canvas id="canvas-Om"></canvas></div>
       <div class="controls">
-        <div class="label-row"><strong>Çıkış Düğümü Boylamı Ω</strong><span id="Om-deg">90</span>°</div>
+        <div class="label-row"><strong>Çıkış Düğümü Boylamı Ω</strong><span><span id="Om-deg">90</span>°</span></div>
         <input id="slider-Om" type="range" min="0" max="359" step="1" value="90" />
-        <div class="legend">Kuzey ekseninden çıkış düğümüne kadar olan açı.</div>
+        <div class="legend">Gökyüzü düzleminde, Kuzey ekseninden çıkış düğümüne kadar olan açı.</div>
       </div>
     </section>
   </div>
+
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
     import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
-    const deg2rad = d => d * Math.PI / 180;
-    const Rz = t => new THREE.Matrix4().set(Math.cos(t), -Math.sin(t), 0, 0, Math.sin(t), Math.cos(t), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-    const Rx = t => new THREE.Matrix4().set(1, 0, 0, 0, 0, Math.cos(t), -Math.sin(t), 0, 0, Math.sin(t), Math.cos(t), 0, 0, 0, 0, 1);
+
+    const deg2rad = (d) => d * Math.PI / 180;
+    const Rz = (t) => new THREE.Matrix4().set(
+      Math.cos(t), -Math.sin(t), 0, 0,
+      Math.sin(t),  Math.cos(t), 0, 0,
+      0,            0,           1, 0,
+      0,            0,           0, 1
+    );
+    const Rx = (t) => new THREE.Matrix4().set(
+      1, 0, 0, 0,
+      0, Math.cos(t), -Math.sin(t), 0,
+      0, Math.sin(t),  Math.cos(t), 0,
+      0, 0, 0, 1
+    );
+
     function kepler3D(a, e, inc, w, Om, fArray) {
       const pts = [];
       const rot = new THREE.Matrix4().multiplyMatrices(Rz(Om), new THREE.Matrix4().multiplyMatrices(Rx(inc), Rz(w)));
@@ -60,27 +78,57 @@
       }
       return pts;
     }
+
+    function addSkyPlane(scene, size=1.2){
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(size*2, size*2),
+        new THREE.MeshBasicMaterial({ color: 0x007777, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
+      );
+      plane.rotateX(Math.PI/2);
+      scene.add(plane);
+    }
+
+    function addAxes(scene, len=1.2){
+      const g = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0,0,0), new THREE.Vector3(len,0,0),
+        new THREE.Vector3(0,0,0), new THREE.Vector3(0,len,0),
+        new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,len)
+      ]);
+      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x888888 })));
+    }
+
     function setupPanel(canvasId, sliderId, readoutId, targetParam) {
       const canvas = document.getElementById(canvasId);
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x000000);
+
       const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-      camera.position.set(2, 2, 2);
+      camera.position.set(2.2, 1.8, 2.2);
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      const a = 1.0, e = 0.5; let i = deg2rad(45), w = deg2rad(90), Om = deg2rad(90);
+
+      // İçerik
+      addSkyPlane(scene, 1.2);
+      addAxes(scene, 1.2);
+      const star = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      scene.add(star);
+
+      const a=1.0, e=0.5; let i=deg2rad(45), w=deg2rad(90), Om=deg2rad(90);
       let orbit;
-      function update() {
+      function update(){
         if (orbit) scene.remove(orbit);
-        const f = Array.from({length: 200}, (_, idx) => idx/199 * 2 * Math.PI);
-        orbit = new THREE.Line(new THREE.BufferGeometry().setFromPoints(kepler3D(a, e, i, w, Om, f)), new THREE.LineBasicMaterial({ color: 0xffffff }));
+        const f = Array.from({length: 360}, (_,k)=> k/359*2*Math.PI);
+        const geo = new THREE.BufferGeometry().setFromPoints(kepler3D(a,e,i,w,Om,f));
+        orbit = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffffff }));
         scene.add(orbit);
       }
       update();
+
       const slider = document.getElementById(sliderId);
       const readout = document.getElementById(readoutId);
-      slider.addEventListener('input', () => {
+      readout.textContent = slider.value;
+      slider.addEventListener('input', ()=>{
         readout.textContent = slider.value;
         const val = deg2rad(parseFloat(slider.value));
         if (targetParam === 'i') i = val;
@@ -88,21 +136,29 @@
         if (targetParam === 'Om') Om = val;
         update();
       });
-      function resize() {
+
+      // Yüksek DPI ve boyutlandırma; kaydırmasız tam görünüm
+      function resize(){
         const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        renderer.setPixelRatio(dpr);
         renderer.setSize(rect.width, rect.height, false);
         camera.aspect = rect.width / rect.height;
         camera.updateProjectionMatrix();
       }
-      window.addEventListener('resize', resize);
+      const ro = new ResizeObserver(resize); ro.observe(canvas.parentElement);
+      window.addEventListener('orientationchange', resize);
       resize();
-      function animate() {
+
+      function animate(){
         controls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
       }
       animate();
     }
+
+    // Panelleri başlat
     setupPanel('canvas-i', 'slider-i', 'i-deg', 'i');
     setupPanel('canvas-omega', 'slider-omega', 'omega-deg', 'omega');
     setupPanel('canvas-Om', 'slider-Om', 'Om-deg', 'Om');
