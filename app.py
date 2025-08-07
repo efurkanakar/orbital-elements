@@ -40,18 +40,35 @@ app.layout = html.Div([
     html.Div([
         html.Div([
             html.Label("İnclination i (°)"),
-            dcc.Slider(0, 180, step=1, value=45, id="slider-i")
+            dcc.Slider(
+                0, 180, step=1, value=45, id="slider-i",
+                marks={i: str(i) for i in range(0, 181, 30)},
+                updatemode='mouseup'
+            )
         ], style={"padding":"0 20px"}),
+
         html.Div([
             html.Label("Argument ω (°)"),
-            dcc.Slider(0, 360, step=1, value=90, id="slider-w")
+            dcc.Slider(
+                0, 360, step=1, value=90, id="slider-w",
+                marks={i: str(i) for i in range(0, 361, 60)},
+                updatemode='mouseup'
+            )
         ], style={"padding":"0 20px"}),
+
         html.Div([
             html.Label("Node Ω (°)"),
-            dcc.Slider(0, 360, step=1, value=90, id="slider-Om")
+            dcc.Slider(
+                0, 360, step=1, value=90, id="slider-Om",
+                marks={i: str(i) for i in range(0, 361, 60)},
+                updatemode='mouseup'
+            )
         ], style={"padding":"0 20px"}),
+
         html.Button("▶ Play / || Pause", id="btn-play", n_clicks=0),
-        dcc.Interval(id="interval", interval=100, disabled=True)
+
+        # interval’i 100 yerine 50 ms yaptık (20 FPS’e çıkar)
+        dcc.Interval(id="interval", interval=50, disabled=True)
     ], style={"width":"20%", "display":"inline-block", "verticalAlign":"top"}),
 
     html.Div([
