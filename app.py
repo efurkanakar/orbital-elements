@@ -95,9 +95,20 @@ def update_graph(i_deg, w_deg, Om_deg, frame_idx):
     # 3D Figure
     fig3d = go.Figure([
         go.Scatter3d(x=Xo, y=Yo, z=Zo, mode='lines', line=dict(color='black')),
-        go.Scatter3d(x=[0], y=[0], z=[0], mode='markers', marker=dict(size=5, color='purple')),
-        go.Scatter3d(x=[Xb], y=[Yb], z=[Zb], mode='markers', marker=dict(size=6, color='orange'))
-    ])
+        go.Scatter3d(
+            x=[0],
+            y=[0],
+            z=[0],
+            mode='markers',
+            marker=dict(size=5, color='purple')
+        ),
+        go.Scatter3d(
+            x=[Xb],
+            y=[Yb],
+            z=[Zb],
+            mode='markers',
+            marker=dict(size=6, color='orange')
+        )    ])
 
     fig3d.update_layout(
         scene=dict(
