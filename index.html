@@ -5,222 +5,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>i, ω, Ω — 3D Yörünge Görselleştirme</title>
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    .wrap { display: grid; grid-template-rows: 1fr 1fr 1fr; height: 100vh; }
-    .panel { display: grid; grid-template-columns: 1fr 260px; gap: 8px; padding: 8px; border-top: 1px solid #eee; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background-color: black; }
+    .wrap { display: flex; flex-direction: column; height: 100vh; }
+    .panel { flex: 1; display: flex; flex-direction: column; border-top: 1px solid #333; }
     .panel:first-child { border-top: none; }
-    .canvas-holder { position: relative; background: #f9fafb; border-radius: 12px; }
-    .controls { display: grid; grid-auto-rows: min-content; gap: 12px; align-content: start; }
-    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-    .label-row { display: flex; justify-content: space-between; font-size: 13px; color: #374151; margin-bottom: 4px; }
+    .canvas-holder { flex: 1; }
+    canvas { width: 100%; height: 100%; display: block; }
+    .controls { padding: 8px; background: #111; color: white; }
+    .label-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
     input[type="range"] { width: 100%; }
-    .legend { font-size: 12px; color: #4b5563; }
+    .legend { font-size: 12px; color: #aaa; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <!-- Panel 1: Eğiklik i -->
-    <section class="panel" id="panel-i">
+    <section class="panel">
       <div class="canvas-holder"><canvas id="canvas-i"></canvas></div>
       <div class="controls">
-        <div class="card">
-          <div class="label-row"><strong>Eğiklik i</strong><span><span id="i-deg">45</span>°</span></div>
-          <input id="slider-i" type="range" min="0" max="89" step="1" value="45" />
-          <div class="legend">Yörünge düzleminin gökyüzü düzlemine göre eğimi.</div>
-        </div>
+        <div class="label-row"><strong>Eğiklik i</strong><span id="i-deg">45</span>°</div>
+        <input id="slider-i" type="range" min="0" max="89" step="1" value="45" />
+        <div class="legend">Yörünge düzleminin gökyüzü düzlemine göre eğimi.</div>
       </div>
     </section>
-
-    <!-- Panel 2: Argüman ω -->
-    <section class="panel" id="panel-omega">
+    <section class="panel">
       <div class="canvas-holder"><canvas id="canvas-omega"></canvas></div>
       <div class="controls">
-        <div class="card">
-          <div class="label-row"><strong>Periapsis Argümanı ω</strong><span><span id="omega-deg">90</span>°</span></div>
-          <input id="slider-omega" type="range" min="0" max="359" step="1" value="90" />
-          <div class="legend">Yörünge düzlemi içinde, çıkış düğümünden periapse kadar olan açı.</div>
-        </div>
+        <div class="label-row"><strong>Periapsis Argümanı ω</strong><span id="omega-deg">90</span>°</div>
+        <input id="slider-omega" type="range" min="0" max="359" step="1" value="90" />
+        <div class="legend">Çıkış düğümünden periapse kadar olan açı.</div>
       </div>
     </section>
-
-    <!-- Panel 3: Çıkış Düğümü Boylamı Ω -->
-    <section class="panel" id="panel-Om">
+    <section class="panel">
       <div class="canvas-holder"><canvas id="canvas-Om"></canvas></div>
       <div class="controls">
-        <div class="card">
-          <div class="label-row"><strong>Çıkış Düğümü Boylamı Ω</strong><span><span id="Om-deg">90</span>°</span></div>
-          <input id="slider-Om" type="range" min="0" max="359" step="1" value="90" />
-          <div class="legend">Gökyüzü düzleminde, Kuzey ekseninden çıkış düğümüne kadar olan açı.</div>
-        </div>
+        <div class="label-row"><strong>Çıkış Düğümü Boylamı Ω</strong><span id="Om-deg">90</span>°</div>
+        <input id="slider-Om" type="range" min="0" max="359" step="1" value="90" />
+        <div class="legend">Kuzey ekseninden çıkış düğümüne kadar olan açı.</div>
       </div>
     </section>
   </div>
-
-  <!-- three.js (esm dev) -->
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
     import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
-
-    // --- Matematik yardımcıları ---
-    const deg2rad = (d) => d * Math.PI / 180;
-    const Rz = (t) => new THREE.Matrix4().set(
-      Math.cos(t), -Math.sin(t), 0, 0,
-      Math.sin(t),  Math.cos(t), 0, 0,
-      0,            0,           1, 0,
-      0,            0,           0, 1
-    );
-    const Rx = (t) => new THREE.Matrix4().set(
-      1, 0, 0, 0,
-      0, Math.cos(t), -Math.sin(t), 0,
-      0, Math.sin(t),  Math.cos(t), 0,
-      0, 0, 0, 1
-    );
-
+    const deg2rad = d => d * Math.PI / 180;
+    const Rz = t => new THREE.Matrix4().set(Math.cos(t), -Math.sin(t), 0, 0, Math.sin(t), Math.cos(t), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+    const Rx = t => new THREE.Matrix4().set(1, 0, 0, 0, 0, Math.cos(t), -Math.sin(t), 0, 0, Math.sin(t), Math.cos(t), 0, 0, 0, 0, 1);
     function kepler3D(a, e, inc, w, Om, fArray) {
       const pts = [];
       const rot = new THREE.Matrix4().multiplyMatrices(Rz(Om), new THREE.Matrix4().multiplyMatrices(Rx(inc), Rz(w)));
       for (let f of fArray) {
         const r = a * (1 - e * e) / (1 + e * Math.cos(f));
         const x = r * Math.cos(f), y = r * Math.sin(f), z = 0;
-        const v = new THREE.Vector3(x, y, z).applyMatrix4(rot);
-        pts.push(v);
+        pts.push(new THREE.Vector3(x, y, z).applyMatrix4(rot));
       }
       return pts;
     }
-
-    function makeAxes(size=1.2){
-      const group = new THREE.Group();
-      const mat = new THREE.LineBasicMaterial({ linewidth: 1 });
-      const axes = [
-        { from:[0,0,0], to:[ size,0,0] }, // Kuzey (x)
-        { from:[0,0,0], to:[0, size,0] }, // Doğu (y)
-        { from:[0,0,0], to:[0,0, size] }  // Bakış (z)
-      ];
-      for(const a of axes){
-        const g = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(...a.from), new THREE.Vector3(...a.to)
-        ]);
-        group.add(new THREE.Line(g, mat));
-      }
-      // Etiketler (basit SpriteText yerine CanvasTexture)
-      const labels = [
-        { text:"Kuzey", pos:[ size*1.05,0,0] },
-        { text:"Doğu", pos:[0, size*1.05,0] },
-        { text:"Bakış Doğrultusu", pos:[0,0, size*1.05] },
-      ];
-      for(const L of labels){ group.add(makeTextSprite(L.text, L.pos)); }
-      return group;
-    }
-
-    function makeTextSprite(text, pos){
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      ctx.font = '16px Arial';
-      const w = ctx.measureText(text).width + 12;
-      canvas.width = w; canvas.height = 28;
-      ctx.font = '16px Arial';
-      ctx.fillStyle = '#374151';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, 6, 14);
-      const tex = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
-      const spr = new THREE.Sprite(mat);
-      spr.scale.set(canvas.width/200, canvas.height/200, 1);
-      spr.position.set(...pos);
-      return spr;
-    }
-
-    function makeSkyPlane(size=1.2){
-      const geo = new THREE.PlaneGeometry(size*2, size*2, 1, 1);
-      const mat = new THREE.MeshBasicMaterial({ color: 0x008080, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.rotateX(Math.PI/2); // XY düzlemi zaten z=0; görsel için hafifçe çevirmemize gerek yok
-      // Etiket
-      const label = makeTextSprite('Gökyüzü Düzlemi', [-0.8, 0, 0.01]);
-      const g = new THREE.Group(); g.add(mesh); g.add(label); return g;
-    }
-
-    function makeOrbitMesh(a, e, inc, w, Om){
-      const f = Array.from({length: 400}, (_,i)=> i/399*2*Math.PI);
-      const pts = kepler3D(a, e, inc, w, Om, f);
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x111111 }));
-      return line;
-    }
-
-    function makeNodeLine(inc, Om){
-      // lhat = (k x n) yönü yerine, düğüm doğrusu gökyüzü düzleminde (z=0) ve açısı Ω olan doğru
-      const L = 1.2;
-      const p1 = new THREE.Vector3(-L*Math.cos(Om), -L*Math.sin(Om), 0);
-      const p2 = new THREE.Vector3( L*Math.cos(Om),  L*Math.sin(Om), 0);
-      const g = new THREE.BufferGeometry().setFromPoints([p1,p2]);
-      return new THREE.Line(g, new THREE.LineDashedMaterial({ dashSize: 0.08, gapSize: 0.05 }));
-    }
-
-    function makePeriapsisMarker(a, e, inc, w, Om){
-      const pts = kepler3D(a, e, inc, w, Om, [0]);
-      const geom = new THREE.SphereGeometry(0.03, 16, 16);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffd000 });
-      const m = new THREE.Mesh(geom, mat);
-      m.position.copy(pts[0]);
-      return m;
-    }
-
-    function setupPanel(canvasId, sliderEl, readoutEl, targetParam){
+    function setupPanel(canvasId, sliderId, readoutId, targetParam) {
       const canvas = document.getElementById(canvasId);
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xf9fafb);
+      scene.background = new THREE.Color(0x000000);
       const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-      camera.position.set(2.2, 1.8, 2.2);
+      camera.position.set(2, 2, 2);
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-
-      const a=1.0, e=0.5; // sabit
-      let i = deg2rad(45), w = deg2rad(90), Om = deg2rad(90);
-
-      const group = new THREE.Group();
-      const plane = makeSkyPlane(1.2);
-      const axes = makeAxes(1.1);
-      group.add(plane, axes);
-
-      let orbit = makeOrbitMesh(a,e,i,w,Om);
-      let nodeLine = makeNodeLine(i,Om);
-      let peri = makePeriapsisMarker(a,e,i,w,Om);
-      group.add(orbit, nodeLine, peri);
-
-      // Yıldız/Barycenter
-      const star = new THREE.Mesh(
-        new THREE.SphereGeometry(0.035, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0x111111 })
-      );
-      group.add(star);
-
-      scene.add(group);
-
-      function resize(){
-        const rect = canvas.getBoundingClientRect();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const wpx = Math.max(320, rect.width);
-        const hpx = Math.max(200, rect.height);
-        renderer.setPixelRatio(dpr);
-        renderer.setSize(wpx, hpx, false);
-        camera.aspect = wpx/hpx; camera.updateProjectionMatrix();
+      const a = 1.0, e = 0.5; let i = deg2rad(45), w = deg2rad(90), Om = deg2rad(90);
+      let orbit;
+      function update() {
+        if (orbit) scene.remove(orbit);
+        const f = Array.from({length: 200}, (_, idx) => idx/199 * 2 * Math.PI);
+        orbit = new THREE.Line(new THREE.BufferGeometry().setFromPoints(kepler3D(a, e, i, w, Om, f)), new THREE.LineBasicMaterial({ color: 0xffffff }));
+        scene.add(orbit);
       }
-
-      function update(){
-        group.remove(orbit); group.remove(nodeLine); group.remove(peri);
-        orbit = makeOrbitMesh(a,e,i,w,Om);
-        nodeLine = makeNodeLine(i,Om);
-        peri = makePeriapsisMarker(a,e,i,w,Om);
-        group.add(orbit, nodeLine, peri);
-      }
-
-      // Slider davranışı
-      const slider = document.getElementById(sliderEl);
-      const readout = document.getElementById(readoutEl);
-      readout.textContent = slider.value;
-      slider.addEventListener('input', ()=>{
+      update();
+      const slider = document.getElementById(sliderId);
+      const readout = document.getElementById(readoutId);
+      slider.addEventListener('input', () => {
         readout.textContent = slider.value;
         const val = deg2rad(parseFloat(slider.value));
         if (targetParam === 'i') i = val;
@@ -228,23 +88,24 @@
         if (targetParam === 'Om') Om = val;
         update();
       });
-
-      function animate(){
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        renderer.setSize(rect.width, rect.height, false);
+        camera.aspect = rect.width / rect.height;
+        camera.updateProjectionMatrix();
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      function animate() {
         controls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
       }
-
-      // İlk ölçülendirme ve animasyon
-      const ro = new ResizeObserver(resize); ro.observe(canvas.parentElement);
-      resize();
       animate();
     }
-
-    // Panelleri başlat
-    setupPanel('canvas-i',     'slider-i',     'i-deg',     'i');
+    setupPanel('canvas-i', 'slider-i', 'i-deg', 'i');
     setupPanel('canvas-omega', 'slider-omega', 'omega-deg', 'omega');
-    setupPanel('canvas-Om',    'slider-Om',    'Om-deg',    'Om');
+    setupPanel('canvas-Om', 'slider-Om', 'Om-deg', 'Om');
   </script>
 </body>
 </html>
