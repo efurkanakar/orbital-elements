@@ -1,240 +1,192 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Orbital Elements Demo</title>
-  <script src="https://cdn.plot.ly/plotly-2.30.1.min.js"></script>
+  <title>Orbital Inclination Demo</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0; padding: 0;
-    }
-    #controls {
-      position: absolute;
-      top: 10px; left: 10px;
-      width: 250px;
-      background: rgba(255,255,255,0.9);
-      padding: 10px;
-      border-radius: 4px;
-      font-family: sans-serif;
-      z-index: 10;
-    }
-    #graphs {
-      position: absolute;
-      top: 0; bottom: 0; left: 270px; right: 0;
-      display: flex;
-    }
-    .graph {
-      flex: 1;
-      height: 100%;
-    }
-    .slider-group { margin-bottom: 10px; }
-    label { display: block; font-size: 14px; margin-bottom: 4px; }
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; }
+    canvas { display:block; }
   </style>
 </head>
 <body>
-
-  <div id="controls">…slider’lar…</div>
-  <div id="graphs">
-    <div id="graph3d" class="graph"></div>
-    <div id="graph2d" class="graph"></div>
-  </div>
-
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
   <script>
-// ——— Matematiksel Fonksiyonlar ———
-function kepler3d(a,e,inc,w,Om,f) {
-  const r = a*(1-e*e)/(1+e*Math.cos(f));
-  const x = r*Math.cos(f), y = r*Math.sin(f), z = 0;
-  // Rz(Ω)·Rx(inc)·Rz(w)·[x;y;z]
-  const cOm = Math.cos(Om), sOm = Math.sin(Om);
-  const cin = Math.cos(inc), sin = Math.sin(inc);
-  const cw = Math.cos(w), sw = Math.sin(w);
-  // first rotation by w around z:
-  let X = x*cw - y*sw, Y = x*sw + y*cw, Z = 0;
-  // then Rx(inc):
-  let Y2 = Y*cin - Z*sin, Z2 = Y*sin + Z*cin, X2 = X;
-  // then Rz(Om):
-  let X3 = X2*cOm - Y2*sOm, Y3 = X2*sOm + Y2*cOm, Z3 = Z2;
-  return [X3,Y3,Z3];
-}
-function solveKepler(M,e) {
-  let E=M, dE=1;
-  for(let i=0;i<50 && Math.abs(dE)>1e-8;i++){
-    dE=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
-    E-=dE;
-  }
-  return E;
-}
+    // ——— Sahne, Kamera, Renderer ———
+    const scene    = new THREE.Scene();
+    const camera   = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+    camera.position.set(3,3,3);
+    camera.lookAt(0,0,0);
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-// ——— Veri Hazırlığı ———
-const Nf=400, a=1, e=0.5;
-const Mseq = Array.from({length:Nf},(_,i)=>2*Math.PI*i/(Nf-1));
-const fTrue = Mseq.map(M=>{
-  const E=solveKepler(M,e);
-  return 2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),
-                      Math.sqrt(1-e)*Math.cos(E/2));
-});
+    // ——— Sabitler ———
+    const sma = 1, ecc = 0.5;
+    const inc = THREE.MathUtils.degToRad(45);
+    const w   = THREE.MathUtils.degToRad(90);
+    const Om  = THREE.MathUtils.degToRad(90);
 
-// orbit çizgisi
-const fLine = Array.from({length:500},(_,i)=>2*Math.PI*i/499);
-
-// ——— Boş layout ———
-const layout3d = {
-  scene:{aspectmode:'cube', xaxis:{range:[-1.5,1.5], title:'North'},
-         yaxis:{range:[-1.5,1.5], title:'East'},
-         zaxis:{range:[-1.5,1.5], title:'LoS'}},
-  margin:{l:0,r:0,b:0,t:30}, title:'3D Orbit Geometry'
-};
-const layout2d = {
-  xaxis:{range:[-1.5,1.5], autorange:false, title:'ΔRA'},
-  yaxis:{range:[-1.5,1.5], autorange:false, title:'ΔDec'},
-  margin:{l:40,r:10,b:40,t:30}, title:'Sky-Plane Projection'
-};
-
-// ——— İlk Grafikler ———
-Plotly.newPlot('graph3d', [], layout3d, {displaylogo:false});
-Plotly.newPlot('graph2d', [], layout2d, {displaylogo:false});
-
-// ——— Güncelleme Fonksiyonu ———
-function updatePlots(){
-  const i = parseFloat(inc.value)*Math.PI/180;
-  const w = parseFloat(omega.value)*Math.PI/180;
-  const Om= parseFloat(Om.value)*Math.PI/180;
-  incVal.textContent = inc.value;
-  omegaVal.textContent = omega.value;
-  OmVal.textContent = Om.value;
-
-  // 1) 3D orbit hattı
-  const orb3 = fLine.map(f=>kepler3d(a,e,i,w,Om,f));
-  const Xo=orb3.map(v=>v[0]), Yo=orb3.map(v=>v[1]), Zo=orb3.map(v=>v[2]);
-
-  // 2) Orbital plane mesh
-  const U = Array.from({length:15},(_,j)=>-1.2+2.4*j/14);
-  let planeX=[], planeY=[], planeZ=[];
-  U.forEach(u=>U.forEach(v=>{
-    planeX.push(u); planeY.push(v); planeZ.push(0);
-  }));
-
-  // 3) ascending/descending node, periastron, arcs, wedge
-  const fAsc = (2*Math.PI - w)%(2*Math.PI);
-  const [Xa,Ya,Za] = kepler3d(a,e,i,w,Om,fAsc);
-  const [Xd,Yd,Zd] = kepler3d(a,e,i,w,Om,fAsc+Math.PI);
-  const [Xp, Yp, Zp] = kepler3d(a,e,i,w,Om,0);
-
-  // Ω arc
-  const OmArc = [];
-  for(let t=0;t<=60;t++){
-    const th=Om*t/60;
-    OmArc.push([1.05*Math.cos(th),1.05*Math.sin(th),0]);
-  }
-  // ω arc
-  const sign = i<Math.PI/2?1:-1;
-  const wArc=[];
-  for(let t=0;t<=60;t++){
-    const th = sign* w*t/60;
-    const f = (fAsc + th)%(2*Math.PI);
-    wArc.push( kepler3d(a,e,i,w,Om,f) );
-  }
-  // inclination wedge
-  let wedge3=[];
-  const k=[0,0,1], n=[Math.sin(i)*Math.sin(Om),-Math.sin(i)*Math.cos(Om),Math.cos(i)];
-  const axis = [ k[1]*n[2]-k[2]*n[1], k[2]*n[0]-k[0]*n[2], k[0]*n[1]-k[1]*n[0] ];
-  const sin_i = Math.hypot(...axis);
-  if(sin_i>1e-6){
-    const lhat = axis.map(v=>v/sin_i);
-    const e1 = [ lhat[1]*k[2]-lhat[2]*k[1],
-                 lhat[2]*k[0]-lhat[0]*k[2],
-                 lhat[0]*k[1]-lhat[1]*k[0] ];
-    const norm = Math.hypot(...e1);
-    e1.forEach((v,i)=>e1[i]/=norm);
-    for(let t=0;t<=40;t++){
-      const th = i*t/40;
-      // Rodrigues
-      const v0 = e1;
-      const vcos = v0.map(v=>v*Math.cos(th));
-      const vcross = [
-        k[1]*v0[2]-k[2]*v0[1],
-        k[2]*v0[0]-k[0]*v0[2],
-        k[0]*v0[1]-k[1]*v0[0]
-      ].map(v=>v*Math.sin(th));
-      const vdot = (k[0]*v0[0]+k[1]*v0[1]+k[2]*v0[2])*(1-Math.cos(th));
-      wedge3.push([
-        vcos[0]+vcross[0]+k[0]*vdot,
-        vcos[1]+vcross[1]+k[1]*vdot,
-        vcos[2]+vcross[2]+k[2]*vdot
-      ]);
+    // ——— Yörünge Noktalarını Hesapla ———
+    const pts = [];
+    for(let deg=0; deg<=360; deg++){
+      const f = THREE.MathUtils.degToRad(deg);
+      const r = sma*(1-ecc*ecc)/(1+ecc*Math.cos(f));
+      // Kepler 3D dönüşümü: Rz(Om)·Rx(inc)·Rz(w)
+      const cw = Math.cos(w), sw = Math.sin(w),
+            ci = Math.cos(inc), si = Math.sin(inc),
+            cO = Math.cos(Om), sO = Math.sin(Om);
+      // başlangıç (x,y,0)
+      let x = r*Math.cos(f), y = r*Math.sin(f), z = 0;
+      // 1) Rz(w)
+      [x,y] = [ x*cw - y*sw, x*sw + y*cw ];
+      // 2) Rx(inc)
+      [y,z] = [ y*ci - z*si, y*si + z*ci ];
+      // 3) Rz(Om)
+      [x,y] = [ x*cO - y*sO, x*sO + y*cO ];
+      pts.push(new THREE.Vector3(x,y,z));
     }
-  }
+    const orbitGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const orbitMat = new THREE.LineBasicMaterial({color:0x000000, linewidth:2});
+    const orbit   = new THREE.LineLoop(orbitGeo, orbitMat);
+    scene.add(orbit);
 
-  // Traces
-  const traces3d = [
-    { x:orb3.map(v=>v[0]), y:orb3.map(v=>v[1]), z:orb3.map(v=>v[2]),
-      type:'scatter3d', mode:'lines', line:{width:2,color:'black'}, name:'Orbit' },
-    { x:planeX, y:planeY, z:planeZ, type:'mesh3d',
-      opacity:0.4, color:'cornflowerblue', showscale:false, name:'Plane' },
-    { x:[0],y:[0],z:[0], type:'scatter3d', mode:'markers',
-      marker:{size:6,color:'k'}, name:'Focus' },
-    { x:[Xa],y:[Ya],z:[Za], type:'scatter3d', mode:'markers',
-      marker:{symbol:'triangle-up',size:6,color:'dodgerblue'}, name:'Asc node' },
-    { x:[Xd],y:[Yd],z:[Zd], type:'scatter3d', mode:'markers',
-      marker:{symbol:'triangle-down',size:6,color:'firebrick'}, name:'Des node' },
-    { x:[Xp],y:[Yp],z:[Zp], type:'scatter3d', mode:'markers',
-      marker:{symbol:'diamond',size:6,color:'gold'}, name:'Periastron' },
-    { x:OmArc.map(v=>v[0]),y:OmArc.map(v=>v[1]),z:OmArc.map(v=>v[2]),
-      type:'scatter3d', mode:'lines', line:{width:3,color:'seagreen'}, name:'Ω arc' },
-    { x:wArc.map(v=>v[0]),y:wArc.map(v=>v[1]),z:wArc.map(v=>v[2]),
-      type:'scatter3d', mode:'lines', line:{width:3,color:'darkorange'}, name:'ω arc' }
-  ];
-  if(wedge3.length){
-    traces3d.push({
-      x:wedge3.map(v=>v[0]), y:wedge3.map(v=>v[1]), z:wedge3.map(v=>v[2]),
-      type:'mesh3d', opacity:0.35, color:'cyan', name:'Inclination wedge'
+    // ——— Sky-plane Mesh ———
+    const size = 2.4, seg = 10;
+    const planeGeo = new THREE.PlaneGeometry(size, size, seg, seg);
+    const planeMat = new THREE.MeshBasicMaterial({
+      color:0x008080, transparent:true, opacity:0.1, side:THREE.DoubleSide
     });
-  }
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    scene.add(plane);
 
-  // Update 3D
-  Plotly.react('graph3d', traces3d, layout3d, {displayModeBar:false});
-
-  // 2D projection
-  const trace2d = [
-    { x:orb3.map(v=>-v[1]), y:orb3.map(v=>v[0]),
-      mode:'lines', type:'scatter', line:{color:'black'}, name:'Orbit' },
-    { x:[-Ya], y:[Xa], mode:'markers', type:'scatter',
-      marker:{symbol:'triangle-up',size:6,color:'dodgerblue'}, name:'Asc' },
-    { x:[-Yd], y:[Xd], mode:'markers', type:'scatter',
-      marker:{symbol:'triangle-down',size:6,color:'firebrick'}, name:'Des' },
-    { x:[-Yp], y:[Xp], mode:'markers', type:'scatter',
-      marker:{symbol:'diamond',size:6,color:'gold'}, name:'Peri' },
-    { x:[-0.0], y:[0.0], mode:'markers', type:'scatter',
-      marker:{symbol:'star',size:8,color:'k'}, name:'Focus' },
-    { x:OmArc.map(v=>v[0]), y:OmArc.map(v=>v[1]),
-      mode:'lines', type:'scatter', line:{width:3,color:'seagreen'}, name:'Ω arc' },
-    { x:wArc.map(v=>-v[1]), y:wArc.map(v=>v[0]),
-      mode:'lines', type:'scatter', line:{width:3,color:'darkorange'}, name:'ω arc' }
-  ];
-  if(wedge3.length){
-    const wedge2dX = [0].concat(wedge3.map(v=>-v[1])).concat([0]);
-    const wedge2dY = [0].concat(wedge3.map(v=>v[0])).concat([0]);
-    trace2d.push({
-      x:wedge2dX, y:wedge2dY, fill:'toself', type:'scatter',
-      fillcolor:'cyan', opacity:0.3, line:{width:0}, name:'Inclination wedge'
+    // ——— Axis Arrows ve Etiketler ———
+    const arrowDirs = {
+      'Kuzey': [1.1,0,0],
+      'Doğu':  [0,1.1,0],
+      'Bakış': [0,0,1.1]
+    };
+    Object.entries(arrowDirs).forEach(([lbl,vec])=>{
+      const dir = new THREE.Vector3(...vec).normalize();
+      const arr = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), 1.1, 0x555555, 0.07, 0.05);
+      scene.add(arr);
+      // 2D etiket: basit bir sprite
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#555';
+      ctx.font = '24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(lbl, 64, 64);
+      const tex = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex}));
+      sprite.position.set(...vec.map(v=>v*0.95));
+      sprite.scale.set(0.6,0.6,0.6);
+      scene.add(sprite);
     });
-  }
 
-  Plotly.react('graph2d', trace2d, layout2d, {displayModeBar:false});
-}
+    // ——— Node Line ———
+    // axis = k×n
+    const k = new THREE.Vector3(0,0,1);
+    const n = new THREE.Vector3(
+      Math.sin(inc)*Math.sin(Om),
+      -Math.sin(inc)*Math.cos(Om),
+      Math.cos(inc)
+    );
+    const axis = new THREE.Vector3().crossVectors(k,n).normalize();
+    const pts2 = [axis.clone().multiplyScalar(-1.2), axis.clone().multiplyScalar(1.2)];
+    const nodeGeo = new THREE.BufferGeometry().setFromPoints(pts2);
+    const nodeMat = new THREE.LineDashedMaterial({color:0x888888, dashSize:0.1, gapSize:0.1, linewidth:1});
+    const nodeLine = new THREE.Line(nodeGeo, nodeMat);
+    nodeLine.computeLineDistances();
+    scene.add(nodeLine);
 
-// ——— Başlangıç render ———
-const inc = document.getElementById('inc'),
-      omega = document.getElementById('omega'),
-      Om = document.getElementById('Om'),
-      incVal = document.getElementById('incVal'),
-      omegaVal = document.getElementById('omegaVal'),
-      OmVal = document.getElementById('OmVal');
+    // ——— Asc/Des Node Marker ———
+    const fAsc = (2*Math.PI - w)%(2*Math.PI);
+    const fDes = (fAsc + Math.PI)%(2*Math.PI);
+    function pointAt(f){
+      const r = sma*(1-ecc*ecc)/(1+ecc*Math.cos(f));
+      let x=r*Math.cos(f), y=r*Math.sin(f), z=0;
+      // Rz(w)
+      [x,y] = [ x*Math.cos(w)-y*Math.sin(w), x*Math.sin(w)+y*Math.cos(w) ];
+      // Rx(inc)
+      [y,z] = [ y*Math.cos(inc)-z*Math.sin(inc), y*Math.sin(inc)+z*Math.cos(inc) ];
+      // Rz(Om)
+      [x,y] = [ x*Math.cos(Om)-y*Math.sin(Om), x*Math.sin(Om)+y*Math.cos(Om) ];
+      return new THREE.Vector3(x,y,z);
+    }
+    const asc = pointAt(fAsc), des = pointAt(fDes);
+    const mkMatAsc = new THREE.MeshBasicMaterial({color:0x1e90ff});
+    const mkMatDes = new THREE.MeshBasicMaterial({color:0xb22222});
+    const sphGeo   = new THREE.SphereGeometry(0.04,8,8);
+    const ascMp = new THREE.Mesh(sphGeo, mkMatAsc);
+    const desMp = new THREE.Mesh(sphGeo, mkMatDes);
+    ascMp.position.copy(asc); desMp.position.copy(des);
+    scene.add(ascMp, desMp);
 
-inc.oninput = omega.oninput = Om.oninput = updatePlots;
-updatePlots();
+    // ——— Periastron Marker ———
+    const peri = pointAt(0);
+    const periMp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 12,12),
+      new THREE.MeshBasicMaterial({color:'gold'})
+    );
+    periMp.position.copy(peri);
+    scene.add(periMp);
 
-</script>
+    // ——— Inclination Wedge ———
+    // rodres = Rodrigues(e1 × axis_norm)
+    const e1 = new THREE.Vector3().crossVectors(axis,k).normalize();
+    const wedgePts = [];
+    for(let t=0; t<=40; t++){
+      const th = inc * t/40;
+      // Rodrigues
+      const v = e1.clone().multiplyScalar(Math.cos(th))
+        .add(new THREE.Vector3().crossVectors(axis,e1).multiplyScalar(Math.sin(th)))
+        .add(axis.clone().multiplyScalar(axis.dot(e1)*(1-Math.cos(th))));
+      wedgePts.push(v);
+    }
+    // üçgen mesh
+    const wedgeGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), ...wedgePts, wedgePts[0]]);
+    wedgeGeo.setIndex([...Array(wedgePts.length+1).keys()].flatMap((i,i0,arr)=>(i0>0?[[0,i0, i0+1]]:[])));
+    const wedgeMat = new THREE.MeshBasicMaterial({color:'purple', side:THREE.DoubleSide, transparent:true, opacity:0.4});
+    const wedgeMesh= new THREE.Mesh(wedgeGeo, wedgeMat);
+    scene.add(wedgeMesh);
+
+    // ——— Barycenter (Focus) ———
+    const star = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07,16,16),
+      new THREE.MeshBasicMaterial({color:'black'})
+    );
+    scene.add(star);
+
+    // ——— Label “i” ———
+    const canvas2 = document.createElement('canvas');
+    canvas2.width = canvas2.height = 128;
+    const ctx2 = canvas2.getContext('2d');
+    ctx2.fillStyle = 'purple';
+    ctx2.font = '28px serif';
+    ctx2.textAlign = 'center';
+    ctx2.fillText('i', 64, 64);
+    const tex2 = new THREE.CanvasTexture(canvas2);
+    const spr2 = new THREE.Sprite(new THREE.SpriteMaterial({map:tex2}));
+    // orta nokta:
+    const mid = wedgePts[Math.floor(wedgePts.length/2)];
+    spr2.position.copy(mid);
+    spr2.scale.set(0.3,0.3,0.3);
+    scene.add(spr2);
+
+    // ——— Render Döngüsü ———
+    function animate(){
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ——— Pencere Yeniden Boyut ———
+    window.addEventListener('resize',()=>{
+      renderer.setSize(innerWidth, innerHeight);
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
 </body>
 </html>
