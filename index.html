@@ -2,88 +2,109 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Orbital Plane Tilt Demo</title>
+  <title>Orbit Elements Demo</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    #sliderContainer {
+    body { margin: 0; overflow: hidden; background: #f0f0f0; }
+    #controls {
       position: absolute;
       top: 10px;
       left: 10px;
-      z-index: 1;
       background: rgba(255,255,255,0.8);
-      padding: 8px;
+      padding: 10px;
       border-radius: 4px;
       font-family: sans-serif;
     }
+    #controls label, #controls span { font-size: 14px; }
+    #controls input { width: 200px; }
   </style>
 </head>
 <body>
-  <div id="sliderContainer">
-    <label for="incSlider">Inclination (i°): </label>
-    <input type="range" id="incSlider" min="0" max="180" value="45">
-    <span id="incValue">45°</span>
+  <div id="controls">
+    <div>
+      <label for="incSlider">Inclination i°:</label>
+      <input type="range" id="incSlider" min="0" max="180" value="45">
+      <span id="incValue">45°</span>
+    </div>
+    <!-- Add more sliders for ω, Ω as needed -->
   </div>
+
   <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
   <script>
-    // Scene, camera, renderer
+    // Kepler & rotation functions ported to JS
+    function kepler3d(a,e,inc,w,Om,fArr) {
+      const pts = [];
+      const cos= Math.cos, sin = Math.sin;
+      for(let f of fArr) {
+        const r = a*(1-e*e)/(1+e*cos(f));
+        let x = r*cos(f), y = r*sin(f), z = 0;
+        // rotation: Rz(Om)*Rx(inc)*Rz(w)
+        // apply Z(w)
+        let X1 = x*cos(w) - y*sin(w);
+        let Y1 = x*sin(w) + y*cos(w);
+        let Z1 = z;
+        // apply X(inc)
+        let X2 = X1;
+        let Y2 = Y1*cos(inc) - Z1*sin(inc);
+        let Z2 = Y1*sin(inc) + Z1*cos(inc);
+        // apply Z(Om)
+        let X3 = X2*cos(Om) - Y2*sin(Om);
+        let Y3 = X2*sin(Om) + Y2*cos(Om);
+        let Z3 = Z2;
+        pts.push(new THREE.Vector3(X3, Y3, Z3));
+      }
+      return pts;
+    }
+
+    // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(3, 3, 3);
-    camera.lookAt(0, 0, 0);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    camera.position.set(3,3,3);
+    camera.lookAt(0,0,0);
+    const renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Orbit ellipse
-    const points = [];
-    const a = 1, e = 0.5;
-    for (let deg = 0; deg <= 360; deg++) {
-      const f = THREE.MathUtils.degToRad(deg);
-      const r = a * (1 - e*e) / (1 + e * Math.cos(f));
-      points.push(new THREE.Vector3(r * Math.cos(f), r * Math.sin(f), 0));
-    }
-    const orbitGeom = new THREE.BufferGeometry().setFromPoints(points);
-    const orbitMat = new THREE.LineBasicMaterial({ color: 0x000000 });
-    const orbitLine = new THREE.LineLoop(orbitGeom, orbitMat);
+    // Orbit path
+    const f_line = Array.from({length:360},(_,i)=>i*(Math.PI*2/359));
+    const a=1, e=0.5;
+    let orbitPts = kepler3d(a,e,Math.PI/4,Math.PI/2,Math.PI/2,f_line);
+    let orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPts);
+    let orbitMat = new THREE.LineBasicMaterial({ color:0x000000 });
+    let orbitLine = new THREE.LineLoop(orbitGeo, orbitMat);
     scene.add(orbitLine);
 
     // Orbital plane
-    const planeGeom = new THREE.PlaneGeometry(2.4, 2.4);
-    const planeMat = new THREE.MeshBasicMaterial({ color: 0x6495ED, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
-    const planeMesh = new THREE.Mesh(planeGeom, planeMat);
-    scene.add(planeMesh);
+    let planeGeom = new THREE.PlaneGeometry(2.4,2.4);
+    let planeMat = new THREE.MeshBasicMaterial({color:0x6495ED, side:THREE.DoubleSide, transparent:true, opacity:0.4});
+    let plane = new THREE.Mesh(planeGeom, planeMat);
+    scene.add(plane);
 
-    // Axes arrows (North, East, LoS)
-    const origin = new THREE.Vector3(0,0,0);
-    const axes = [
-      { dir: new THREE.Vector3(1,0,0), color: 0x555555 },
-      { dir: new THREE.Vector3(0,1,0), color: 0x555555 },
-      { dir: new THREE.Vector3(0,0,1), color: 0x555555 }
-    ];
-    axes.forEach(ax => {
-      const arrow = new THREE.ArrowHelper(ax.dir, origin, 1.2, ax.color, 0.1, 0.05);
+    // Axes
+    [[1,0,0],[0,1,0],[0,0,1]].forEach(dir=>{
+      let arrow = new THREE.ArrowHelper(new THREE.Vector3(...dir), new THREE.Vector3(0,0,0),1.2,0x555555,0.1,0.05);
       scene.add(arrow);
     });
 
-    // Handle window resize
-    window.addEventListener('resize', () => {
+    // Handle resize
+    window.addEventListener('resize',()=>{
       renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.aspect=window.innerWidth/window.innerHeight;
       camera.updateProjectionMatrix();
     });
 
-    // Slider interaction
-    const slider = document.getElementById('incSlider');
-    const incValue = document.getElementById('incValue');
-    slider.oninput = function() {
-      const ang = THREE.MathUtils.degToRad(this.value);
-      planeMesh.rotation.x = ang;
-      orbitLine.rotation.x = ang;
-      incValue.textContent = this.value + '°';
+    // Slider control
+    const incSlider = document.getElementById('incSlider');
+    const incValue  = document.getElementById('incValue');
+    incSlider.oninput = ()=>{
+      let deg=+incSlider.value;
+      incValue.textContent=deg+'°';
+      let inc=deg*Math.PI/180;
+      plane.rotation.x = inc;
+      orbitLine.rotation.x = inc;
     };
 
     // Render loop
-    (function animate() {
+    (function animate(){
       requestAnimationFrame(animate);
       renderer.render(scene, camera);
     })();
