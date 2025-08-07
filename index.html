@@ -5,12 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Yörünge Yönelim Açıları: i, Ω, ω — İnteraktif</title>
   <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; }
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b1020; color:#e9eefc; }
     header{ padding:16px 20px; border-bottom:1px solid #1b2344; background:#0f1530; position:sticky; top:0; z-index:10; }
     h1{ margin:0 0 6px; font-size:20px; letter-spacing:.2px }
     p { margin: 6px 0 0; color:#c9d5ff; font-size:14px; }
-    main { display:grid; grid-template-columns: 1fr 320px; gap:18px; padding:14px 14px 18px; }
-    #sceneWrap{ position:relative; border:1px solid #1b2344; border-radius:12px; overflow:hidden; background:#0b1020; min-height: 70vh; }
+    main { display:grid; grid-template-columns: 1fr 320px; gap:18px; padding:14px 14px 18px; min-height: calc(100vh - 76px); }
+
+    /* --- ÖNEMLİ: sahne kapları --- */
+    #sceneWrap{ position:relative; border:1px solid #1b2344; border-radius:12px; overflow:hidden; background:#0b1020; min-height:70vh; display:flex; }
+    #scene{ flex:1; height:100%; }
+
     #overlay{ position:absolute; left:10px; top:10px; font-size:13px; color:#d2dcff; background:rgba(15,21,48,.6); padding:8px 10px; border-radius:8px; border:1px solid #1b2344 }
     .panel { border:1px solid #1b2344; border-radius:12px; padding:12px; background:#0f1530; height: fit-content; }
     .panel h3 { margin: 4px 0 8px; font-size:16px; }
@@ -26,6 +32,10 @@
     canvas{ display:block; }
     footer{ padding:10px 16px 18px; color:#90a2ff; font-size:12px; opacity:.9 }
     a { color:#9bc2ff }
+
+    @media (max-width:980px){
+      main{ grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -107,19 +117,19 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     host.appendChild(renderer.domElement);
 
-    // Işıklar (hafif)
     const hemi = new THREE.HemisphereLight(0xffffff, 0x223355, .9);
     scene.add(hemi);
 
-    // ====== Eksenler ve gökyüzü düzlemi ======
+    // ====== Gökyüzü düzlemi (z=0) ======
     const skyMat = new THREE.MeshBasicMaterial({ color: 0x1fb4b4, transparent:true, opacity:0.12, side:THREE.DoubleSide });
     const skyGeom = new THREE.PlaneGeometry(3.2, 3.2, 1, 1);
     const sky = new THREE.Mesh(skyGeom, skyMat);
-    sky.rotation.x = Math.PI/2; // z=0 düzlemi
+    // NOT: z=0 düzlemi zaten XY'dir; ekstra rotasyon yok.
     scene.add(sky);
 
+    // Eksen okları
     const axisLen = 1.4;
-    const makeArrow=(dir, col, label)=>{
+    const makeArrow=(dir, col)=>{
       const ar = new THREE.ArrowHelper(dir.clone().normalize(), new THREE.Vector3(0,0,0), axisLen, col, 0.08, 0.04);
       scene.add(ar);
     };
@@ -132,37 +142,11 @@
     scene.add(star);
 
     // ====== Yardımcı fonksiyonlar ======
-    const Rz = (t)=>{
-      const c=Math.cos(t), s=Math.sin(t);
-      return new THREE.Matrix3().set( c,-s,0,  s, c,0,  0,0,1 );
-    };
-    const Rx = (t)=>{
-      const c=Math.cos(t), s=Math.sin(t);
-      return new THREE.Matrix3().set( 1,0,0,  0, c,-s,  0, s, c );
-    };
-    const applyM3 = (m, v)=>{
-      const e=m.elements; const x=v.x, y=v.y, z=v.z;
-      return new THREE.Vector3(
-        e[0]*x + e[1]*y + e[2]*z,
-        e[3]*x + e[4]*y + e[5]*z,
-        e[6]*x + e[7]*y + e[8]*z
-      );
-    };
-    const kepler3d=(a,e,inc,w,Om,f)=>{
-      const r = a*(1-e*e)/(1+ e*Math.cos(f));
-      const x = r*Math.cos(f), y=r*Math.sin(f), z=0;
-      const M = new THREE.Matrix3();
-      const m = new THREE.Matrix3();
-      M.copy(Rz(Om)); m.copy(Rx(inc)); M.multiply(m); m.copy(Rz(w)); M.multiply(m);
-      return applyM3(M, new THREE.Vector3(x,y,z));
-    };
-    const rodrigues=(v,k,th)=>{
-      const vc=v.clone(); const kc=k.clone();
-      const c=Math.cos(th), s=Math.sin(th);
-      const cross = new THREE.Vector3().copy(kc).cross(vc).multiplyScalar(s);
-      const dot = kc.dot(vc);
-      return vc.multiplyScalar(c).add(cross).add(kc.multiplyScalar(dot*(1-c)));
-    };
+    const Rz = (t)=>{ const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set( c,-s,0,  s, c,0,  0,0,1 ); };
+    const Rx = (t)=>{ const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set( 1,0,0,  0, c,-s,  0, s, c ); };
+    const applyM3 = (m, v)=>{ const e=m.elements; const x=v.x, y=v.y, z=v.z; return new THREE.Vector3( e[0]*x + e[1]*y + e[2]*z, e[3]*x + e[4]*y + e[5]*z, e[6]*x + e[7]*y + e[8]*z ); };
+    const kepler3d=(a,e,inc,w,Om,f)=>{ const r = a*(1-e*e)/(1+ e*Math.cos(f)); const x = r*Math.cos(f), y=r*Math.sin(f), z=0; const M = new THREE.Matrix3(); const m = new THREE.Matrix3(); M.copy(Rz(Om)); m.copy(Rx(inc)); M.multiply(m); m.copy(Rz(w)); M.multiply(m); return applyM3(M, new THREE.Vector3(x,y,z)); };
+    const rodrigues=(v,k,th)=>{ const vc=v.clone(); const kc=k.clone(); const c=Math.cos(th), s=Math.sin(th); const cross = new THREE.Vector3().copy(kc).cross(vc).multiplyScalar(s); const dot = kc.dot(vc); return vc.multiplyScalar(c).add(cross).add(kc.multiplyScalar(dot*(1-c))); };
 
     // ====== Geometriler (dinamik güncellenecek) ======
     const orbitMat = new THREE.LineBasicMaterial({ color:0xffffff, linewidth:1 });
@@ -173,7 +157,6 @@
     const nodeMat = new THREE.LineDashedMaterial({ color:0xaaaaaa, dashSize:0.08, gapSize:0.05 });
     const nodeGeom = new THREE.BufferGeometry();
     const nodeLine = new THREE.Line(nodeGeom, nodeMat);
-    nodeLine.computeLineDistances();
     scene.add(nodeLine);
 
     const asc = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 16), new THREE.MeshBasicMaterial({color:0x3fa9ff}));
@@ -183,25 +166,21 @@
     const peri = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), new THREE.MeshBasicMaterial({color:0xffe073}));
     scene.add(peri);
 
-    // Ω yayı (z=0 daire yayı)
     const OmMat = new THREE.LineBasicMaterial({ color:0x2bb36c });
     const OmGeom = new THREE.BufferGeometry();
     const OmArc = new THREE.Line(OmGeom, OmMat);
     scene.add(OmArc);
 
-    // ω yayı (yörünge üzerinde)
     const wMat = new THREE.LineBasicMaterial({ color:0xffa142 });
     const wGeom = new THREE.BufferGeometry();
     const wArc = new THREE.Line(wGeom, wMat);
     scene.add(wArc);
 
-    // i wedge (üçgen fan)
     const wedgeMat = new THREE.MeshBasicMaterial({ color:0x9b59ff, opacity:0.35, transparent:true, side:THREE.DoubleSide });
     let wedgeMesh = new THREE.Mesh(new THREE.BufferGeometry(), wedgeMat);
     scene.add(wedgeMesh);
 
     // ====== Güncelleme ======
-    const tmp = new THREE.Vector3();
     const kvec = new THREE.Vector3(0,0,1);
 
     function update(){
@@ -221,8 +200,7 @@
       orbitGeom.computeBoundingSphere();
 
       // Enberi (f=0)
-      const P = kepler3d(a,e,inc,w,Om,0);
-      peri.position.copy(P);
+      peri.position.copy(kepler3d(a,e,inc,w,Om,0));
 
       // Düğüm doğrultusu: n = (sin i sin Ω, -sin i cos Ω, cos i)
       const n = new THREE.Vector3(
@@ -243,6 +221,7 @@
       ]);
       nodeGeom.setAttribute('position', new THREE.BufferAttribute(nd,3));
       nodeGeom.computeBoundingSphere();
+      nodeLine.computeLineDistances(); // dashed için GEREKLİ
 
       // Çıkış/iniş düğümleri (f_asc = 2π - ω)
       const f_asc = (2*Math.PI - (w%(2*Math.PI)))%(2*Math.PI);
@@ -272,7 +251,6 @@
       wGeom.setAttribute('position', new THREE.BufferAttribute(wPts,3));
 
       // i wedge (merkez + rodrigues yayından üçgen fan)
-      // e1 = normalize(lhat × k)
       const e1 = new THREE.Vector3().copy(lhat).cross(kvec);
       if (sin_i<1e-8 || e1.length()<1e-8){
         wedgeMesh.geometry.dispose(); wedgeMesh.geometry = new THREE.BufferGeometry();
@@ -296,7 +274,6 @@
     }
 
     // ====== Kamera kontrolleri (basit orbit) ======
-    // Minimal kendi kontrolümüz: fare ile döndür, teker ile zoom
     let isDown=false, lx=0, ly=0, theta=0.8, phi=0.9, R=4.3;
     function updateCam(){
       const x = R*Math.sin(theta)*Math.cos(phi);
@@ -323,8 +300,9 @@
     // Boyutlandırma
     function resize(){
       const r = wrap.getBoundingClientRect();
-      renderer.setSize(r.width, Math.max(420, r.height));
-      camera.aspect = r.width / Math.max(420, r.height);
+      const h = Math.max(420, r.height);
+      renderer.setSize(r.width, h);
+      camera.aspect = r.width / h;
       camera.updateProjectionMatrix();
     }
     window.addEventListener('resize', ()=>{ resize(); });
