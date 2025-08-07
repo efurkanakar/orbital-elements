@@ -1,100 +1,100 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Yörünge Yönelim Açıları: i, Ω, ω — İnteraktif</title>
+  <title>Orbital Orientation — i, Ω, ω</title>
   <style>
     :root { color-scheme: dark; }
     html, body { height: 100%; }
-    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b1020; color:#e9eefc; }
-    header{ padding:16px 20px; border-bottom:1px solid #1b2344; background:#0f1530; position:sticky; top:0; z-index:10; }
-    h1{ margin:0 0 6px; font-size:20px; letter-spacing:.2px }
-    p { margin: 6px 0 0; color:#c9d5ff; font-size:14px; }
-    main { display:grid; grid-template-columns: 1fr 320px; gap:18px; padding:14px 14px 18px; min-height: calc(100vh - 76px); }
+    body {
+      margin: 0;
+      height: 100vh;               /* full screen */
+      overflow: hidden;            /* no page scroll */
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:#000;             /* pure black */
+      color:#e9eefc;
+    }
+    header{ padding:12px 16px; border-bottom:1px solid #1b2344; background:#000; }
+    h1{ margin:0; font-size:18px; letter-spacing:.2px }
 
-    /* --- ÖNEMLİ: sahne kapları --- */
-    #sceneWrap{ position:relative; border:1px solid #1b2344; border-radius:12px; overflow:hidden; background:#0b1020; min-height:70vh; display:flex; }
+    main {
+      display:grid;
+      grid-template-columns: 1fr 320px;
+      gap:14px;
+      height: calc(100vh - 46px);  /* header height compensation */
+      padding:12px;
+      box-sizing: border-box;
+    }
+
+    /* Scene containers */
+    #sceneWrap{
+      position:relative; border:1px solid #1b2344; border-radius:12px; overflow:hidden; background:#000; display:flex; min-height:0;
+    }
     #scene{ flex:1; height:100%; }
 
-    #overlay{ position:absolute; left:10px; top:10px; font-size:13px; color:#d2dcff; background:rgba(15,21,48,.6); padding:8px 10px; border-radius:8px; border:1px solid #1b2344 }
-    .panel { border:1px solid #1b2344; border-radius:12px; padding:12px; background:#0f1530; height: fit-content; }
-    .panel h3 { margin: 4px 0 8px; font-size:16px; }
-    .slider { margin: 12px 0 16px; }
+    #overlay{ position:absolute; left:10px; top:10px; font-size:13px; color:#d2dcff; background:rgba(20,20,30,.55); padding:8px 10px; border-radius:8px; border:1px solid #1b2344 }
+
+    .panel { border:1px solid #1b2344; border-radius:12px; padding:12px; background:#0f1530; height: 100%; box-sizing:border-box; display:flex; flex-direction:column; gap:12px; }
+
+    .slider { }
     .slider label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; margin-bottom:6px; color:#e9eefc }
     .slider input[type=range]{ width:100%; }
     .value{ font-variant-numeric: tabular-nums; color:#a6c1ff }
-    .legend{ font-size:13px; color:#bac8ff; line-height:1.5 }
+
     .chip{ display:inline-block; padding:2px 6px; border-radius:999px; border:1px solid #1b2344; margin-right:6px }
     .chip.teal{ background:#0a2a2a; color:#9bf2f2 }
     .chip.green{ background:#0a2f1f; color:#9ff2bf }
     .chip.orange{ background:#3a2406; color:#ffd29b }
+
     canvas{ display:block; }
-    footer{ padding:10px 16px 18px; color:#90a2ff; font-size:12px; opacity:.9 }
-    a { color:#9bc2ff }
 
     @media (max-width:980px){
       main{ grid-template-columns: 1fr; }
+      .panel{ height:auto; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Yörünge Yönelim Açıları — <em>inclination</em> i, düğümlerin konum açısı Ω, enberi argümanı ω</h1>
-    <p>Sağdaki kaydırıcılarla i, Ω ve ω değerlerini değiştirin; 3B sahnede yörünge, gökyüzü düzlemi, düğüm doğrusu ve yaylar anında güncellenir.</p>
+    <h1>Orbital Orientation — i, Ω, ω</h1>
   </header>
 
   <main>
     <div id="sceneWrap">
       <div id="overlay">
-        <div><span class="chip teal">Gökyüzü düzlemi</span> <span class="chip green">Ω yayı</span> <span class="chip orange">ω yayı</span></div>
-        <div>▲: Çıkış düğümü (ASC) &nbsp; ▽: İniş düğümü (DESC) &nbsp; ◆: Enberi</div>
+        <div><span class="chip teal">Sky plane</span> <span class="chip green">Ω arc</span> <span class="chip orange">ω arc</span></div>
+        <div>▲: Ascending node &nbsp; ▽: Descending node &nbsp; ◆: Periastron</div>
       </div>
       <div id="scene"></div>
     </div>
 
     <aside class="panel">
-      <h3>Açıklama</h3>
-      <div class="legend">
-        <p><strong>Eğim (i)</strong>: Yörünge düzlemi ile gökyüzü düzlemi (z=0) arasındaki açı. 0°: yüzeysel; 90°: kenardan.</p>
-        <p><strong>Ω</strong> (Position Angle of Nodes): Çıkış düğümünün gökyüzü düzlemindeki referans eksenine göre açısı. Burada x-ekseni (Kuzey) referans alınmıştır.</p>
-        <p><strong>ω</strong>: Çıkış düğümünden enberi yönüne kadar ölçülen açı (yörünge düzlemi içinde).</p>
-      </div>
-
       <div class="slider">
-        <label for="iRange">Eğim i (°) <span class="value" id="iVal"></span></label>
+        <label for="iRange">Inclination i (°) <span class="value" id="iVal"></span></label>
         <input id="iRange" type="range" min="0" max="180" step="1" value="45">
       </div>
       <div class="slider">
-        <label for="OmRange">Ω (°) <span class="value" id="OmVal"></span></label>
+        <label for="OmRange">Longitude of nodes Ω (°) <span class="value" id="OmVal"></span></label>
         <input id="OmRange" type="range" min="0" max="360" step="1" value="90">
       </div>
       <div class="slider">
-        <label for="wRange">ω (°) <span class="value" id="wVal"></span></label>
+        <label for="wRange">Argument of periastron ω (°) <span class="value" id="wVal"></span></label>
         <input id="wRange" type="range" min="0" max="360" step="1" value="90">
-      </div>
-
-      <div class="legend">
-        <p><strong>İpucu:</strong> i≈0° iken wedge görünmez (düzlemler çakışır); i≈180° iken işaretler ters döner.</p>
       </div>
     </aside>
   </main>
 
-  <footer>
-    Bu sayfa saf HTML+JS ile çalışır; statik olarak <strong>GitHub Pages</strong>’a yükleyip herkese açabilirsiniz. Üç boyut için <em>Three.js</em> kullanılmıştır.
-  </footer>
-
-  <!-- Three.js (ES module) -->
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
-    // ====== Parametreler ======
-    const a = 1.0;       // yarı-büyük eksen
-    const e = 0.5;       // dışmerkezlik
-    const N = 512;       // elips örnekleme
+    // ====== Parameters ======
+    const a = 1.0;       // semi-major axis (arb. units)
+    const e = 0.5;       // eccentricity
+    const N = 512;       // ellipse sampling
     const fLine = Array.from({length:N}, (_,k)=> k*(2*Math.PI/(N-1)));
 
-    // HTML
+    // HTML refs
     const wrap = document.getElementById('sceneWrap');
     const host = document.getElementById('scene');
     const iRange  = document.getElementById('iRange');
@@ -106,9 +106,9 @@
     const setLabels=()=>{ iVal.textContent=iRange.value+'°'; OmVal.textContent=OmRange.value+'°'; wVal.textContent=wRange.value+'°'; };
     setLabels();
 
-    // ====== Sahne ======
+    // ====== Scene ======
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b1020);
+    scene.background = new THREE.Color(0x000000);
 
     const camera = new THREE.PerspectiveCamera(50, 16/9, 0.01, 100);
     camera.position.set(3.5, 3.2, 2.6);
@@ -117,38 +117,60 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     host.appendChild(renderer.domElement);
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x223355, .9);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x222233, .9);
     scene.add(hemi);
 
-    // ====== Gökyüzü düzlemi (z=0) ======
+    // ====== Sky plane (z=0) ======
     const skyMat = new THREE.MeshBasicMaterial({ color: 0x1fb4b4, transparent:true, opacity:0.12, side:THREE.DoubleSide });
     const skyGeom = new THREE.PlaneGeometry(3.2, 3.2, 1, 1);
     const sky = new THREE.Mesh(skyGeom, skyMat);
-    // NOT: z=0 düzlemi zaten XY'dir; ekstra rotasyon yok.
     scene.add(sky);
 
-    // Eksen okları
+    // ====== Axis arrows ======
     const axisLen = 1.4;
+    const arrows = [];
     const makeArrow=(dir, col)=>{
       const ar = new THREE.ArrowHelper(dir.clone().normalize(), new THREE.Vector3(0,0,0), axisLen, col, 0.08, 0.04);
-      scene.add(ar);
+      scene.add(ar); arrows.push(ar);
+      return ar;
     };
-    makeArrow(new THREE.Vector3(1,0,0), 0xaaaaaa); // Kuzey (x)
-    makeArrow(new THREE.Vector3(0,1,0), 0xaaaaaa); // Doğu  (y)
-    makeArrow(new THREE.Vector3(0,0,1), 0xaaaaaa); // Bakış (z)
+    const north = makeArrow(new THREE.Vector3( 1,0,0), 0xaaaaaa); // +X
+    const south = makeArrow(new THREE.Vector3(-1,0,0), 0x666666); // -X
+    const los   = makeArrow(new THREE.Vector3( 0,0,1), 0xaaaaaa); // +Z
 
-    // Merkez (yıldız)
-    const star = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 16), new THREE.MeshBasicMaterial({color:0xffffff}));
-    scene.add(star);
+    // ====== Text labels as sprites ======
+    function makeLabel(text){
+      const c = document.createElement('canvas');
+      const ctx = c.getContext('2d');
+      const fs = 48; const pad=12; const fw = '500';
+      ctx.font = `${fw} ${fs}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+      const w = Math.ceil(ctx.measureText(text).width) + pad*2;
+      const h = fs + pad*2;
+      c.width = w; c.height = h;
+      ctx.font = `${fw} ${fs}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.textBaseline = 'middle'; ctx.textAlign='center';
+      ctx.fillText(text, w/2, h/2);
+      const tex = new THREE.CanvasTexture(c);
+      tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent:true });
+      const sp = new THREE.Sprite(mat);
+      const scale = 0.5; sp.scale.set((w/h)*scale, 1*scale, 1);
+      return sp;
+    }
+    const labelNorth = makeLabel('North');
+    const labelSouth = makeLabel('South');
+    const labelLoS   = makeLabel('Line of Sight');
+    scene.add(labelNorth, labelSouth, labelLoS);
 
-    // ====== Yardımcı fonksiyonlar ======
+    // ====== Helpers ======
     const Rz = (t)=>{ const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set( c,-s,0,  s, c,0,  0,0,1 ); };
     const Rx = (t)=>{ const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set( 1,0,0,  0, c,-s,  0, s, c ); };
     const applyM3 = (m, v)=>{ const e=m.elements; const x=v.x, y=v.y, z=v.z; return new THREE.Vector3( e[0]*x + e[1]*y + e[2]*z, e[3]*x + e[4]*y + e[5]*z, e[6]*x + e[7]*y + e[8]*z ); };
     const kepler3d=(a,e,inc,w,Om,f)=>{ const r = a*(1-e*e)/(1+ e*Math.cos(f)); const x = r*Math.cos(f), y=r*Math.sin(f), z=0; const M = new THREE.Matrix3(); const m = new THREE.Matrix3(); M.copy(Rz(Om)); m.copy(Rx(inc)); M.multiply(m); m.copy(Rz(w)); M.multiply(m); return applyM3(M, new THREE.Vector3(x,y,z)); };
     const rodrigues=(v,k,th)=>{ const vc=v.clone(); const kc=k.clone(); const c=Math.cos(th), s=Math.sin(th); const cross = new THREE.Vector3().copy(kc).cross(vc).multiplyScalar(s); const dot = kc.dot(vc); return vc.multiplyScalar(c).add(cross).add(kc.multiplyScalar(dot*(1-c))); };
 
-    // ====== Geometriler (dinamik güncellenecek) ======
+    // ====== Geometries ======
     const orbitMat = new THREE.LineBasicMaterial({ color:0xffffff, linewidth:1 });
     const orbitGeom = new THREE.BufferGeometry();
     const orbit = new THREE.Line(orbitGeom, orbitMat);
@@ -180,7 +202,7 @@
     let wedgeMesh = new THREE.Mesh(new THREE.BufferGeometry(), wedgeMat);
     scene.add(wedgeMesh);
 
-    // ====== Güncelleme ======
+    // ====== Update ======
     const kvec = new THREE.Vector3(0,0,1);
 
     function update(){
@@ -189,7 +211,7 @@
       const w   = THREE.MathUtils.degToRad(parseFloat(wRange.value));
       const Om  = THREE.MathUtils.degToRad(parseFloat(OmRange.value));
 
-      // Yörünge
+      // Orbit
       const pts = new Float32Array(3*N);
       for(let i=0;i<N;i++){
         const f = fLine[i];
@@ -199,10 +221,10 @@
       orbitGeom.setAttribute('position', new THREE.BufferAttribute(pts,3));
       orbitGeom.computeBoundingSphere();
 
-      // Enberi (f=0)
+      // Periastron (f=0)
       peri.position.copy(kepler3d(a,e,inc,w,Om,0));
 
-      // Düğüm doğrultusu: n = (sin i sin Ω, -sin i cos Ω, cos i)
+      // Node direction: n = (sin i sin Ω, -sin i cos Ω, cos i)
       const n = new THREE.Vector3(
         Math.sin(inc)*Math.sin(Om),
         -Math.sin(inc)*Math.cos(Om),
@@ -213,24 +235,24 @@
       let lhat = new THREE.Vector3(1,0,0);
       if (sin_i>1e-8){ lhat.copy(axis).multiplyScalar(1/sin_i); }
 
-      // Düğüm çizgisi
-      const L = 1.6; // uzunluk
+      // Node line
+      const L = 1.6;
       const nd = new Float32Array([
         -L*lhat.x, -L*lhat.y, -L*lhat.z,
          L*lhat.x,  L*lhat.y,  L*lhat.z
       ]);
       nodeGeom.setAttribute('position', new THREE.BufferAttribute(nd,3));
       nodeGeom.computeBoundingSphere();
-      nodeLine.computeLineDistances(); // dashed için GEREKLİ
+      nodeLine.computeLineDistances();
 
-      // Çıkış/iniş düğümleri (f_asc = 2π - ω)
+      // Asc/Desc nodes (f_asc = 2π - ω)
       const f_asc = (2*Math.PI - (w%(2*Math.PI)))%(2*Math.PI);
       const Pa = kepler3d(a,e,inc,w,Om,f_asc);
       const Pd = kepler3d(a,e,inc,w,Om,(f_asc+Math.PI)%(2*Math.PI));
       asc.position.copy(Pa);
       des.position.copy(Pd);
 
-      // Ω yayı: z=0, 0→Ω, yarıçap = |(Xasc,Yasc)|
+      // Ω arc in z=0
       const rasc = Math.hypot(Pa.x, Pa.y);
       const M = 120; const omPts = new Float32Array(3*M);
       for(let k=0;k<M;k++){
@@ -241,7 +263,7 @@
       }
       OmGeom.setAttribute('position', new THREE.BufferAttribute(omPts,3));
 
-      // ω yayı: yörünge üzerinde ASC→ASC+ω
+      // ω arc on orbit
       const W = 180; const wPts = new Float32Array(3*W);
       for(let k=0;k<W;k++){
         const t = (k/(W-1))*w; const f = (f_asc + t)%(2*Math.PI);
@@ -250,7 +272,7 @@
       }
       wGeom.setAttribute('position', new THREE.BufferAttribute(wPts,3));
 
-      // i wedge (merkez + rodrigues yayından üçgen fan)
+      // i wedge (tri fan via Rodrigues)
       const e1 = new THREE.Vector3().copy(lhat).cross(kvec);
       if (sin_i<1e-8 || e1.length()<1e-8){
         wedgeMesh.geometry.dispose(); wedgeMesh.geometry = new THREE.BufferGeometry();
@@ -271,9 +293,15 @@
         g.setAttribute('position', new THREE.BufferAttribute(arr,3));
         wedgeMesh.geometry.dispose(); wedgeMesh.geometry = g;
       }
+
+      // Position labels near arrows
+      const off = 0.14;
+      labelNorth.position.set( north.position.x + axisLen, north.position.y, north.position.z );
+      labelSouth.position.set(-axisLen, 0, 0);
+      labelLoS.position.set( 0, 0, axisLen + 0.05 );
     }
 
-    // ====== Kamera kontrolleri (basit orbit) ======
+    // Simple orbit camera controls
     let isDown=false, lx=0, ly=0, theta=0.8, phi=0.9, R=4.3;
     function updateCam(){
       const x = R*Math.sin(theta)*Math.cos(phi);
@@ -292,26 +320,27 @@
       phi -= dx; theta = THREE.MathUtils.clamp(theta - dy, 0.001, Math.PI-0.001);
       updateCam();
     });
-    host.addEventListener('wheel', (e)=>{ R = THREE.MathUtils.clamp(R + (e.deltaY>0?0.2:-0.2), 2.2, 10); updateCam(); });
+    // Prevent page scroll on wheel, use for zoom
+    host.addEventListener('wheel', (e)=>{ e.preventDefault(); R = THREE.MathUtils.clamp(R + (e.deltaY>0?0.2:-0.2), 2.2, 10); updateCam(); }, {passive:false});
 
     // Slider events
     for (const el of [iRange, OmRange, wRange]) el.addEventListener('input', update);
 
-    // Boyutlandırma
+    // Resize
     function resize(){
       const r = wrap.getBoundingClientRect();
-      const h = Math.max(420, r.height);
+      const h = r.height;
       renderer.setSize(r.width, h);
       camera.aspect = r.width / h;
       camera.updateProjectionMatrix();
     }
     window.addEventListener('resize', ()=>{ resize(); });
 
-    // İlk çizim
+    // Initial
     resize();
     update();
 
-    // Render döngüsü
+    // Render loop
     function loop(){
       renderer.render(scene,camera);
       requestAnimationFrame(loop);
