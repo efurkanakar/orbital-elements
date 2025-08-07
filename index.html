@@ -1,237 +1,250 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Orbital Orientation — i, Ω, ω</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>i, ω, Ω — 3D Yörünge Görselleştirme</title>
   <style>
-    :root { color-scheme: dark; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      height: 100vh;
-      overflow: hidden;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      background:#000;
-      color:#e9eefc;
-    }
-    header{ padding:10px 14px; border-bottom:1px solid #1b2344; background:#000; }
-    h1{ margin:0; font-size:18px; letter-spacing:.2px }
-
-    main{
-      display:grid;
-      grid-template-columns: 1fr 300px;
-      gap:12px;
-      height: calc(100vh - 44px);
-      padding:10px;
-      box-sizing:border-box;
-    }
-
-    /* left column: 3 stacked canvases */
-    #stack{ display:grid; grid-template-rows: 1fr 1fr 1fr; gap:10px; min-height:0; }
-    .sceneWrap{ position:relative; border:1px solid #1b2344; border-radius:10px; background:#000; display:flex; min-height:0; overflow:hidden; }
-    .scene{ flex:1; height:100%; }
-    .caption{ position:absolute; left:10px; top:8px; font-size:12px; color:#cfd6ff; background:rgba(25,25,30,.45); padding:4px 6px; border-radius:6px; border:1px solid #1b2344 }
-
-    /* right column: sliders controlling all three */
-    .panel { border:1px solid #1b2344; border-radius:10px; padding:12px; background:#0f1530; height:100%; box-sizing:border-box; display:flex; flex-direction:column; gap:10px; }
-    .slider label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; margin-bottom:4px; }
-    .slider input[type=range]{ width:100%; }
-    .value{ font-variant-numeric: tabular-nums; color:#a6c1ff }
-
-    @media (max-width: 900px){
-      main{ grid-template-columns: 1fr; height:auto; }
-      .panel{ height:auto; }
-      body{ overflow:auto; }
-    }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .wrap { display: grid; grid-template-rows: 1fr 1fr 1fr; height: 100vh; }
+    .panel { display: grid; grid-template-columns: 1fr 260px; gap: 8px; padding: 8px; border-top: 1px solid #eee; }
+    .panel:first-child { border-top: none; }
+    .canvas-holder { position: relative; background: #f9fafb; border-radius: 12px; }
+    .controls { display: grid; grid-auto-rows: min-content; gap: 12px; align-content: start; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .label-row { display: flex; justify-content: space-between; font-size: 13px; color: #374151; margin-bottom: 4px; }
+    input[type="range"] { width: 100%; }
+    .legend { font-size: 12px; color: #4b5563; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Orbital Orientation — i, Ω, ω</h1>
-  </header>
-
-  <main>
-    <div id="stack">
-      <div class="sceneWrap"><div class="caption">Inclination i</div><div id="sceneI" class="scene"></div></div>
-      <div class="sceneWrap"><div class="caption">Longitude of nodes Ω</div><div id="sceneOm" class="scene"></div></div>
-      <div class="sceneWrap"><div class="caption">Argument of periastron ω</div><div id="sceneW" class="scene"></div></div>
-    </div>
-
-    <aside class="panel">
-      <div class="slider">
-        <label for="iRange">Inclination i (°) <span class="value" id="iVal"></span></label>
-        <input id="iRange" type="range" min="0" max="180" step="1" value="45">
+  <div class="wrap">
+    <!-- Panel 1: Eğiklik i -->
+    <section class="panel" id="panel-i">
+      <div class="canvas-holder"><canvas id="canvas-i"></canvas></div>
+      <div class="controls">
+        <div class="card">
+          <div class="label-row"><strong>Eğiklik i</strong><span><span id="i-deg">45</span>°</span></div>
+          <input id="slider-i" type="range" min="0" max="89" step="1" value="45" />
+          <div class="legend">Yörünge düzleminin gökyüzü düzlemine göre eğimi.</div>
+        </div>
       </div>
-      <div class="slider">
-        <label for="OmRange">Longitude of nodes Ω (°) <span class="value" id="OmVal"></span></label>
-        <input id="OmRange" type="range" min="0" max="360" step="1" value="90">
-      </div>
-      <div class="slider">
-        <label for="wRange">Argument of periastron ω (°) <span class="value" id="wVal"></span></label>
-        <input id="wRange" type="range" min="0" max="360" step="1" value="90">
-      </div>
-    </aside>
-  </main>
+    </section>
 
+    <!-- Panel 2: Argüman ω -->
+    <section class="panel" id="panel-omega">
+      <div class="canvas-holder"><canvas id="canvas-omega"></canvas></div>
+      <div class="controls">
+        <div class="card">
+          <div class="label-row"><strong>Periapsis Argümanı ω</strong><span><span id="omega-deg">90</span>°</span></div>
+          <input id="slider-omega" type="range" min="0" max="359" step="1" value="90" />
+          <div class="legend">Yörünge düzlemi içinde, çıkış düğümünden periapse kadar olan açı.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 3: Çıkış Düğümü Boylamı Ω -->
+    <section class="panel" id="panel-Om">
+      <div class="canvas-holder"><canvas id="canvas-Om"></canvas></div>
+      <div class="controls">
+        <div class="card">
+          <div class="label-row"><strong>Çıkış Düğümü Boylamı Ω</strong><span><span id="Om-deg">90</span>°</span></div>
+          <input id="slider-Om" type="range" min="0" max="359" step="1" value="90" />
+          <div class="legend">Gökyüzü düzleminde, Kuzey ekseninden çıkış düğümüne kadar olan açı.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- three.js (esm dev) -->
   <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+    import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
 
-    // ------- common math -------
-    const a=1.0, e=0.5, N=512; const fLine = Array.from({length:N}, (_,k)=> k*(2*Math.PI/(N-1)));
-    const Rz = (t)=>{const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set(c,-s,0, s,c,0, 0,0,1);};
-    const Rx = (t)=>{const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set(1,0,0, 0,c,-s, 0,s,c);};
-    const applyM3 = (m, v)=>{const e=m.elements; const x=v.x,y=v.y,z=v.z; return new THREE.Vector3(e[0]*x+e[1]*y+e[2]*z, e[3]*x+e[4]*y+e[5]*z, e[6]*x+e[7]*y+e[8]*z);};
-    const kepler3d=(a,e,inc,w,Om,f)=>{const r=a*(1-e*e)/(1+ e*Math.cos(f)); const x=r*Math.cos(f), y=r*Math.sin(f), z=0; const M=new THREE.Matrix3(); const m=new THREE.Matrix3(); M.copy(Rz(Om)); m.copy(Rx(inc)); M.multiply(m); m.copy(Rz(w)); M.multiply(m); return applyM3(M,new THREE.Vector3(x,y,z));};
-    const rodrigues=(v,k,th)=>{const vc=v.clone(), kc=k.clone(); const c=Math.cos(th), s=Math.sin(th); const cross = kc.clone().cross(vc).multiplyScalar(s); const dot=kc.dot(vc); return vc.multiplyScalar(c).add(cross).add(kc.multiplyScalar(dot*(1-c)));};
+    // --- Matematik yardımcıları ---
+    const deg2rad = (d) => d * Math.PI / 180;
+    const Rz = (t) => new THREE.Matrix4().set(
+      Math.cos(t), -Math.sin(t), 0, 0,
+      Math.sin(t),  Math.cos(t), 0, 0,
+      0,            0,           1, 0,
+      0,            0,           0, 1
+    );
+    const Rx = (t) => new THREE.Matrix4().set(
+      1, 0, 0, 0,
+      0, Math.cos(t), -Math.sin(t), 0,
+      0, Math.sin(t),  Math.cos(t), 0,
+      0, 0, 0, 1
+    );
 
-    // ------- small label sprites -------
-    function makeLabel(text){
-      const c=document.createElement('canvas'); const ctx=c.getContext('2d'); const fs=18, pad=2; ctx.font=`500 ${fs}px system-ui`; const w=Math.ceil(ctx.measureText(text).width)+pad*2; const h=fs+pad*2; c.width=w; c.height=h; ctx.font=`500 ${fs}px system-ui`; ctx.fillStyle='rgba(230,235,255,0.9)'; ctx.textBaseline='middle'; ctx.textAlign='center'; ctx.fillText(text,w/2,h/2); const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter; const sp=new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true })); const scale=0.28; sp.scale.set((w/h)*scale, 1*scale, 1); return sp;
-    }
-
-    // ------- scene factory -------
-    function createScene(host){
-      const scene=new THREE.Scene(); scene.background=new THREE.Color(0x000000);
-      const camera=new THREE.PerspectiveCamera(50, 16/9, 0.01, 100);
-      let theta=0.8, phi=0.9, R=4.3;
-      const updateCam=()=>{const x=R*Math.sin(theta)*Math.cos(phi), y=R*Math.sin(theta)*Math.sin(phi), z=R*Math.cos(theta); camera.position.set(x,y,z); camera.lookAt(0,0,0);}; updateCam();
-      const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); host.appendChild(renderer.domElement);
-      scene.add(new THREE.HemisphereLight(0xffffff,0x222233,.9));
-
-      // sky plane (z=0)
-      const sky=new THREE.Mesh(new THREE.PlaneGeometry(3.2,3.2), new THREE.MeshBasicMaterial({color:0x1fb4b4,transparent:true,opacity:0.12,side:THREE.DoubleSide}));
-      scene.add(sky);
-
-      // axes
-      const axisLen=1.4;
-      const north=new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), axisLen, 0xaaaaaa, 0.07, 0.035);
-      const east =new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), axisLen, 0xaaaaaa, 0.07, 0.035);
-      const los  =new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), axisLen, 0xaaaaaa, 0.07, 0.035);
-      scene.add(north,east,los);
-      const tNorth=makeLabel('North'), tEast=makeLabel('East'), tLoS=makeLabel('LoS');
-      tNorth.position.set(axisLen,0,0); tEast.position.set(0,axisLen,0); tLoS.position.set(0,0,axisLen); scene.add(tNorth,tEast,tLoS);
-
-      // center star
-      scene.add(new THREE.Mesh(new THREE.SphereGeometry(0.05,16,16), new THREE.MeshBasicMaterial({color:0xffffff})));
-
-      // dynamic primitives
-      const orbit = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0xffffff})); scene.add(orbit);
-      const node  = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({color:0xaaaaaa,dashSize:0.08,gapSize:0.05})); scene.add(node);
-      const asc   = new THREE.Mesh(new THREE.SphereGeometry(0.04,16,16), new THREE.MeshBasicMaterial({color:0x3fa9ff}));
-      const des   = new THREE.Mesh(new THREE.SphereGeometry(0.04,16,16), new THREE.MeshBasicMaterial({color:0xd24b4b}));
-      const peri  = new THREE.Mesh(new THREE.OctahedronGeometry(0.045,0), new THREE.MeshBasicMaterial({color:0xffe073}));
-      scene.add(asc,des,peri);
-
-      const arcA = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0x2bb36c})); // Ω arc
-      const arcW = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0xffa142})); // ω arc
-      scene.add(arcA, arcW);
-
-      let wedge = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({color:0x9b59ff,opacity:0.35,transparent:true,side:THREE.DoubleSide}));
-      scene.add(wedge);
-
-      // controls
-      let isDown=false,lx=0,ly=0;
-      host.addEventListener('mousedown',e=>{isDown=true;lx=e.clientX;ly=e.clientY;});
-      addEventListener('mouseup',()=>{isDown=false;});
-      addEventListener('mousemove',e=>{ if(!isDown) return; const dx=(e.clientX-lx)/200, dy=(e.clientY-ly)/200; lx=e.clientX; ly=e.clientY; phi-=dx; theta=THREE.MathUtils.clamp(theta-dy,0.001,Math.PI-0.001); updateCam(); });
-      host.addEventListener('wheel',e=>{ e.preventDefault(); R=THREE.MathUtils.clamp(R+(e.deltaY>0?0.2:-0.2), 2.2, 10); updateCam(); }, {passive:false});
-
-      const resize=()=>{ const r=host.getBoundingClientRect(); renderer.setSize(r.width, r.height); camera.aspect=r.width/r.height; camera.updateProjectionMatrix(); };
-      const obs=new ResizeObserver(resize); obs.observe(host);
-
-      return {scene,camera,renderer,objects:{orbit,node,asc,des,peri,arcA,arcW,wedge}};
-    }
-
-    // mount 3 scenes
-    const scI  = createScene(document.getElementById('sceneI'));
-    const scOm = createScene(document.getElementById('sceneOm'));
-    const scW  = createScene(document.getElementById('sceneW'));
-
-    // sliders
-    const iRange=document.getElementById('iRange'), OmRange=document.getElementById('OmRange'), wRange=document.getElementById('wRange');
-    const iVal=document.getElementById('iVal'), OmVal=document.getElementById('OmVal'), wVal=document.getElementById('wVal');
-    const setLabels=()=>{ iVal.textContent=iRange.value+'°'; OmVal.textContent=OmRange.value+'°'; wVal.textContent=wRange.value+'°'; };
-
-    // update helpers (shared math)
-    const kvec=new THREE.Vector3(0,0,1);
-    function computeCommon(inc,w,Om){
-      // orbit polyline
-      const pts=new Float32Array(3*N);
-      for(let i=0;i<N;i++){ const f=fLine[i]; const p=kepler3d(a,e,inc,w,Om,f); pts[3*i]=p.x; pts[3*i+1]=p.y; pts[3*i+2]=p.z; }
-      // nodes etc.
-      const n=new THREE.Vector3(Math.sin(inc)*Math.sin(Om), -Math.sin(inc)*Math.cos(Om), Math.cos(inc));
-      const axis = kvec.clone().cross(n); const sin_i=axis.length();
-      const lhat = (sin_i>1e-8? axis.clone().multiplyScalar(1/sin_i): new THREE.Vector3(1,0,0));
-      const L=1.6; const nodeArr=new Float32Array([-L*lhat.x,-L*lhat.y,-L*lhat.z, L*lhat.x,L*lhat.y,L*lhat.z]);
-      const f_asc=(2*Math.PI - (w%(2*Math.PI)))%(2*Math.PI);
-      const Pa=kepler3d(a,e,inc,w,Om,f_asc); const Pd=kepler3d(a,e,inc,w,Om,(f_asc+Math.PI)%(2*Math.PI));
-      return {pts,nodeArr,Pa,Pd,lhat,sin_i};
-    }
-
-    function updateAll(){
-      setLabels();
-      const inc=THREE.MathUtils.degToRad(+iRange.value), w=THREE.MathUtils.degToRad(+wRange.value), Om=THREE.MathUtils.degToRad(+OmRange.value);
-      const common = computeCommon(inc,w,Om);
-
-      // --- scene I: inclination wedge only ---
-      updateScene(scI, common, {drawOmega:false, drawSmallOmega:false, drawWedge:true}, inc,w,Om);
-      // --- scene Ω: Ω arc (on z=0) ---
-      updateScene(scOm, common, {drawOmega:true, drawSmallOmega:false, drawWedge:false}, inc,w,Om);
-      // --- scene ω: ω arc (on orbit) ---
-      updateScene(scW, common, {drawOmega:false, drawSmallOmega:true, drawWedge:false}, inc,w,Om);
-    }
-
-    function updateScene(sc, common, flags, inc,w,Om){
-      const {orbit,node,asc,des,peri,arcA,arcW,wedge}=sc.objects;
-      // orbit and nodes
-      orbit.geometry.setAttribute('position', new THREE.BufferAttribute(common.pts,3));
-      node.geometry.setAttribute('position', new THREE.BufferAttribute(common.nodeArr,3)); node.computeLineDistances();
-      asc.position.copy(common.Pa); des.position.copy(common.Pd); peri.position.copy(kepler3d(a,e,inc,w,Om,0));
-
-      // clear arcs
-      arcA.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0),3));
-      arcW.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0),3));
-
-      // Ω arc (in sky plane, radius to ASC)
-      if(flags.drawOmega){
-        const rasc = Math.hypot(common.Pa.x, common.Pa.y);
-        const M=120; const arr=new Float32Array(3*M);
-        for(let k=0;k<M;k++){ const t=(k/(M-1))*Om; arr[3*k]=rasc*Math.cos(t); arr[3*k+1]=rasc*Math.sin(t); arr[3*k+2]=0; }
-        arcA.geometry.setAttribute('position', new THREE.BufferAttribute(arr,3));
+    function kepler3D(a, e, inc, w, Om, fArray) {
+      const pts = [];
+      const rot = new THREE.Matrix4().multiplyMatrices(Rz(Om), new THREE.Matrix4().multiplyMatrices(Rx(inc), Rz(w)));
+      for (let f of fArray) {
+        const r = a * (1 - e * e) / (1 + e * Math.cos(f));
+        const x = r * Math.cos(f), y = r * Math.sin(f), z = 0;
+        const v = new THREE.Vector3(x, y, z).applyMatrix4(rot);
+        pts.push(v);
       }
-      // ω arc (on orbit from ASC)
-      if(flags.drawSmallOmega){
-        const W=180; const arr=new Float32Array(3*W);
-        for(let k=0;k<W;k++){ const t=(k/(W-1))*w; const f=( (2*Math.PI-(w%(2*Math.PI)))%(2*Math.PI) + t )%(2*Math.PI); const Q=kepler3d(a,e,inc,w,Om,f); arr[3*k]=Q.x; arr[3*k+1]=Q.y; arr[3*k+2]=Q.z; }
-        arcW.geometry.setAttribute('position', new THREE.BufferAttribute(arr,3));
+      return pts;
+    }
+
+    function makeAxes(size=1.2){
+      const group = new THREE.Group();
+      const mat = new THREE.LineBasicMaterial({ linewidth: 1 });
+      const axes = [
+        { from:[0,0,0], to:[ size,0,0] }, // Kuzey (x)
+        { from:[0,0,0], to:[0, size,0] }, // Doğu (y)
+        { from:[0,0,0], to:[0,0, size] }  // Bakış (z)
+      ];
+      for(const a of axes){
+        const g = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(...a.from), new THREE.Vector3(...a.to)
+        ]);
+        group.add(new THREE.Line(g, mat));
       }
-      // i wedge (Rodrigues fan)
-      if(flags.drawWedge){
-        const sin_i = common.sin_i; const e1 = common.lhat.clone().cross(kvec);
-        if(sin_i<1e-8 || e1.length()<1e-8){ wedge.geometry.dispose(); wedge.geometry=new THREE.BufferGeometry(); }
-        else{
-          e1.normalize(); const S=64; const verts=[]; const center=new THREE.Vector3(0,0,0); let prev=null;
-          for(let s=0;s<=S;s++){ const th=(s/S)*inc; const p=rodrigues(e1.clone().multiplyScalar(1.05), common.lhat, th); if(prev){ verts.push(center.x,center.y,center.z, prev.x,prev.y,prev.z, p.x,p.y,p.z); } prev=p; }
-          wedge.geometry.dispose(); wedge.geometry=new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts),3));
-        }
-      } else { wedge.geometry.dispose(); wedge.geometry=new THREE.BufferGeometry(); }
+      // Etiketler (basit SpriteText yerine CanvasTexture)
+      const labels = [
+        { text:"Kuzey", pos:[ size*1.05,0,0] },
+        { text:"Doğu", pos:[0, size*1.05,0] },
+        { text:"Bakış Doğrultusu", pos:[0,0, size*1.05] },
+      ];
+      for(const L of labels){ group.add(makeTextSprite(L.text, L.pos)); }
+      return group;
     }
 
-    // render loops (three renderers)
-    function loop(){ scI.renderer.render(scI.scene, scI.camera); scOm.renderer.render(scOm.scene, scOm.camera); scW.renderer.render(scW.scene, scW.camera); requestAnimationFrame(loop); }
-
-    // resize layout
-    function layout(){
-      // split left column vertically equally; widths/height handled by ResizeObserver
+    function makeTextSprite(text, pos){
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.font = '16px Arial';
+      const w = ctx.measureText(text).width + 12;
+      canvas.width = w; canvas.height = 28;
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#374151';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 6, 14);
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const spr = new THREE.Sprite(mat);
+      spr.scale.set(canvas.width/200, canvas.height/200, 1);
+      spr.position.set(...pos);
+      return spr;
     }
 
-    // events
-    [iRange,OmRange,wRange].forEach(el=>el.addEventListener('input',updateAll));
+    function makeSkyPlane(size=1.2){
+      const geo = new THREE.PlaneGeometry(size*2, size*2, 1, 1);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x008080, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotateX(Math.PI/2); // XY düzlemi zaten z=0; görsel için hafifçe çevirmemize gerek yok
+      // Etiket
+      const label = makeTextSprite('Gökyüzü Düzlemi', [-0.8, 0, 0.01]);
+      const g = new THREE.Group(); g.add(mesh); g.add(label); return g;
+    }
 
-    // init
-    updateAll();
-    loop();
+    function makeOrbitMesh(a, e, inc, w, Om){
+      const f = Array.from({length: 400}, (_,i)=> i/399*2*Math.PI);
+      const pts = kepler3D(a, e, inc, w, Om, f);
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x111111 }));
+      return line;
+    }
+
+    function makeNodeLine(inc, Om){
+      // lhat = (k x n) yönü yerine, düğüm doğrusu gökyüzü düzleminde (z=0) ve açısı Ω olan doğru
+      const L = 1.2;
+      const p1 = new THREE.Vector3(-L*Math.cos(Om), -L*Math.sin(Om), 0);
+      const p2 = new THREE.Vector3( L*Math.cos(Om),  L*Math.sin(Om), 0);
+      const g = new THREE.BufferGeometry().setFromPoints([p1,p2]);
+      return new THREE.Line(g, new THREE.LineDashedMaterial({ dashSize: 0.08, gapSize: 0.05 }));
+    }
+
+    function makePeriapsisMarker(a, e, inc, w, Om){
+      const pts = kepler3D(a, e, inc, w, Om, [0]);
+      const geom = new THREE.SphereGeometry(0.03, 16, 16);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffd000 });
+      const m = new THREE.Mesh(geom, mat);
+      m.position.copy(pts[0]);
+      return m;
+    }
+
+    function setupPanel(canvasId, sliderEl, readoutEl, targetParam){
+      const canvas = document.getElementById(canvasId);
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf9fafb);
+      const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+      camera.position.set(2.2, 1.8, 2.2);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      const a=1.0, e=0.5; // sabit
+      let i = deg2rad(45), w = deg2rad(90), Om = deg2rad(90);
+
+      const group = new THREE.Group();
+      const plane = makeSkyPlane(1.2);
+      const axes = makeAxes(1.1);
+      group.add(plane, axes);
+
+      let orbit = makeOrbitMesh(a,e,i,w,Om);
+      let nodeLine = makeNodeLine(i,Om);
+      let peri = makePeriapsisMarker(a,e,i,w,Om);
+      group.add(orbit, nodeLine, peri);
+
+      // Yıldız/Barycenter
+      const star = new THREE.Mesh(
+        new THREE.SphereGeometry(0.035, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x111111 })
+      );
+      group.add(star);
+
+      scene.add(group);
+
+      function resize(){
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const wpx = Math.max(320, rect.width);
+        const hpx = Math.max(200, rect.height);
+        renderer.setPixelRatio(dpr);
+        renderer.setSize(wpx, hpx, false);
+        camera.aspect = wpx/hpx; camera.updateProjectionMatrix();
+      }
+
+      function update(){
+        group.remove(orbit); group.remove(nodeLine); group.remove(peri);
+        orbit = makeOrbitMesh(a,e,i,w,Om);
+        nodeLine = makeNodeLine(i,Om);
+        peri = makePeriapsisMarker(a,e,i,w,Om);
+        group.add(orbit, nodeLine, peri);
+      }
+
+      // Slider davranışı
+      const slider = document.getElementById(sliderEl);
+      const readout = document.getElementById(readoutEl);
+      readout.textContent = slider.value;
+      slider.addEventListener('input', ()=>{
+        readout.textContent = slider.value;
+        const val = deg2rad(parseFloat(slider.value));
+        if (targetParam === 'i') i = val;
+        if (targetParam === 'omega') w = val;
+        if (targetParam === 'Om') Om = val;
+        update();
+      });
+
+      function animate(){
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      // İlk ölçülendirme ve animasyon
+      const ro = new ResizeObserver(resize); ro.observe(canvas.parentElement);
+      resize();
+      animate();
+    }
+
+    // Panelleri başlat
+    setupPanel('canvas-i',     'slider-i',     'i-deg',     'i');
+    setupPanel('canvas-omega', 'slider-omega', 'omega-deg', 'omega');
+    setupPanel('canvas-Om',    'slider-Om',    'Om-deg',    'Om');
   </script>
 </body>
 </html>
