@@ -1,167 +1,193 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>i, ω, Ω — 3D Yörünge Görselleştirme</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Orbital Elements — i, ω, Ω</title>
+  <script type="module" src="https://pyscript.net/latest/pyscript.js"></script>
   <style>
     :root { color-scheme: dark; }
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#000; }
-    body { overflow: hidden; }
-    /* Tam ekran, dikeyde tam 3 satır ve kaydırmasız */
-    .wrap { display: grid; grid-template-rows: repeat(3, 1fr); height: 100svh; }
-    .panel { display: grid; grid-template-rows: 1fr auto; border-top: 1px solid #222; min-height:0; }
-    .panel:first-child { border-top: none; }
-    .canvas-holder { position: relative; min-height:0; }
-    canvas { width: 100%; height: 100%; display: block; }
-    .controls { padding: 8px 12px; background: #0b0b0b; color: #eee; border-top: 1px solid #222; }
-    .label-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 6px; }
-    input[type="range"] { width: 100%; }
-    .legend { font-size: 12px; color: #aaa; }
+    html,body{height:100%;margin:0;background:#000;font-family:system-ui,Segoe UI,Roboto,Arial}
+    body{overflow:hidden}
+    .wrap{display:grid;grid-template-rows:repeat(3,1fr);height:100svh}
+    .panel{display:grid;grid-template-rows:1fr auto;min-height:0;border-top:1px solid #222}
+    .panel:first-child{border-top:none}
+    .plot{width:100%;height:100%;display:block}
+    .controls{padding:8px 12px;background:#0b0b0b;color:#eee;border-top:1px solid #222}
+    .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:6px}
+    input[type=range]{width:100%}
   </style>
+  <py-config>
+    packages = ["numpy","matplotlib"]
+  </py-config>
 </head>
 <body>
   <div class="wrap">
     <section class="panel">
-      <div class="canvas-holder"><canvas id="canvas-i"></canvas></div>
+      <div id="plot-i" class="plot"></div>
       <div class="controls">
-        <div class="label-row"><strong>Eğiklik i</strong><span><span id="i-deg">45</span>°</span></div>
+        <div class="row"><strong>Eğiklik i</strong><span><span id="i-val">45</span>°</span></div>
         <input id="slider-i" type="range" min="0" max="89" step="1" value="45" />
-        <div class="legend">Yörünge düzleminin gökyüzü düzlemine göre eğimi.</div>
       </div>
     </section>
-
     <section class="panel">
-      <div class="canvas-holder"><canvas id="canvas-omega"></canvas></div>
+      <div id="plot-omega" class="plot"></div>
       <div class="controls">
-        <div class="label-row"><strong>Periapsis Argümanı ω</strong><span><span id="omega-deg">90</span>°</span></div>
+        <div class="row"><strong>Periapsis Argümanı ω</strong><span><span id="omega-val">90</span>°</span></div>
         <input id="slider-omega" type="range" min="0" max="359" step="1" value="90" />
-        <div class="legend">Yörünge düzlemi içinde, çıkış düğümünden periapse kadar olan açı.</div>
       </div>
     </section>
-
     <section class="panel">
-      <div class="canvas-holder"><canvas id="canvas-Om"></canvas></div>
+      <div id="plot-Om" class="plot"></div>
       <div class="controls">
-        <div class="label-row"><strong>Çıkış Düğümü Boylamı Ω</strong><span><span id="Om-deg">90</span>°</span></div>
+        <div class="row"><strong>Çıkış Düğümü Boylamı Ω</strong><span><span id="Om-val">90</span>°</span></div>
         <input id="slider-Om" type="range" min="0" max="359" step="1" value="90" />
-        <div class="legend">Gökyüzü düzleminde, Kuzey ekseninden çıkış düğümüne kadar olan açı.</div>
       </div>
     </section>
   </div>
 
-  <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
+  <py-script>
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from pyscript import display, when, get
+from math import pi
 
-    const deg2rad = (d) => d * Math.PI / 180;
-    const Rz = (t) => new THREE.Matrix4().set(
-      Math.cos(t), -Math.sin(t), 0, 0,
-      Math.sin(t),  Math.cos(t), 0, 0,
-      0,            0,           1, 0,
-      0,            0,           0, 1
-    );
-    const Rx = (t) => new THREE.Matrix4().set(
-      1, 0, 0, 0,
-      0, Math.cos(t), -Math.sin(t), 0,
-      0, Math.sin(t),  Math.cos(t), 0,
-      0, 0, 0, 1
-    );
+# ---- ortak sabitler
+sma, ecc = 1.0, 0.5
+inc0, w0, Om0 = np.deg2rad([45, 90, 90])
+f_line = np.linspace(0, 2*np.pi, 200)
+U = np.linspace(-1.2, 1.2, 10)
+UU, VV = np.meshgrid(U, U)
+ZU = np.zeros_like(UU)
+axes_lbl = {'Kuzey': np.array([1.1,0,0]),
+            'Doğu': np.array([0,1.1,0]),
+            'Bakış Doğrultusu': np.array([0,0,1.1])}
 
-    function kepler3D(a, e, inc, w, Om, fArray) {
-      const pts = [];
-      const rot = new THREE.Matrix4().multiplyMatrices(Rz(Om), new THREE.Matrix4().multiplyMatrices(Rx(inc), Rz(w)));
-      for (let f of fArray) {
-        const r = a * (1 - e * e) / (1 + e * Math.cos(f));
-        const x = r * Math.cos(f), y = r * Math.sin(f), z = 0;
-        pts.push(new THREE.Vector3(x, y, z).applyMatrix4(rot));
-      }
-      return pts;
-    }
+def kepler_3d(a, e, inc, w, Om, f):
+    r = a * (1 - e**2) / (1 + e * np.cos(f))
+    x, y = r * np.cos(f), r * np.sin(f)
+    z = np.zeros_like(f)
+    Rz = lambda t: np.array([[ np.cos(t), -np.sin(t), 0],
+                             [ np.sin(t),  np.cos(t), 0],
+                             [ 0        ,  0        , 1]])
+    Rx = lambda t: np.array([[1, 0, 0],
+                             [0, np.cos(t), -np.sin(t)],
+                             [0, np.sin(t),  np.cos(t)]])
+    return (Rz(Om) @ Rx(inc) @ Rz(w)) @ np.vstack((x, y, z))
 
-    function addSkyPlane(scene, size=1.2){
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(size*2, size*2),
-        new THREE.MeshBasicMaterial({ color: 0x007777, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
-      );
-      plane.rotateX(Math.PI/2);
-      scene.add(plane);
-    }
+def rodrigues(v, k, th):
+    v, k = np.asarray(v), np.asarray(k)
+    return v*np.cos(th) + np.cross(k, v)*np.sin(th) + k*np.dot(k, v)*(1-np.cos(th))
 
-    function addAxes(scene, len=1.2){
-      const g = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0,0,0), new THREE.Vector3(len,0,0),
-        new THREE.Vector3(0,0,0), new THREE.Vector3(0,len,0),
-        new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,len)
-      ]);
-      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x888888 })));
-    }
+def plot_base(ax, inc, w, Om):
+    Xr, Yr, Zr = kepler_3d(sma, ecc, inc, w, Om, f_line)
+    k_vec = np.array([0,0,1])
+    n_vec = np.array([np.sin(inc)*np.sin(Om), -np.sin(inc)*np.cos(Om), np.cos(inc)])
+    axis = np.cross(k_vec, n_vec); axis_norm = np.linalg.norm(axis)
+    lhat = axis/axis_norm if axis_norm>1e-6 else np.array([1,0,0])
+    ray = np.linspace(-1.2, 1.2, 2)
+    Xnd, Ynd, Znd = ray*lhat[0], ray*lhat[1], ray*lhat[2]
+    Xp, Yp, Zp = kepler_3d(sma, ecc, inc, w, Om, np.array([0]))[:,0]
 
-    function setupPanel(canvasId, sliderId, readoutId, targetParam) {
-      const canvas = document.getElementById(canvasId);
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x000000);
+    ax.plot_surface(UU, VV, ZU, color='teal', alpha=0.1, linewidth=0)
+    for lbl, vec in axes_lbl.items():
+        ax.quiver(0,0,0, *vec, color='gray', arrow_length_ratio=0.07)
+        ax.text(*(1.05*vec), lbl, color='gray')
 
-      const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-      camera.position.set(2.2, 1.8, 2.2);
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
+    verts = []
+    center = np.array([0,0,0])
+    for i in range(len(Xr)-1):
+        verts.append([center, [Xr[i],Yr[i],Zr[i]], [Xr[i+1],Yr[i+1],Zr[i+1]]])
+    ax.add_collection3d(Poly3DCollection(verts, facecolor='lightgray', alpha=0.1, edgecolor='none'))
+    ax.plot(Xr, Yr, Zr, 'w', lw=1)
+    ax.plot(Xnd, Ynd, Znd, '--', color='gray', lw=1)
 
-      // İçerik
-      addSkyPlane(scene, 1.2);
-      addAxes(scene, 1.2);
-      const star = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      scene.add(star);
+    f_asc = (2*np.pi - w) % (2*np.pi)
+    f_des = (f_asc + np.pi) % (2*np.pi)
+    Xasc,Yasc,Zasc = kepler_3d(sma, ecc, inc, w, Om, np.array([f_asc]))[:,0]
+    Xdes,Ydes,Zdes = kepler_3d(sma, ecc, inc, w, Om, np.array([f_des]))[:,0]
+    ax.plot([Xasc],[Yasc],[Zasc], '^', color='dodgerblue', ms=8)
+    ax.plot([Xdes],[Ydes],[Zdes], 'v', color='firebrick', ms=8)
+    ax.text(Xasc+0.15, Yasc-0.3, Zasc-0.05, "ÇD", color='dodgerblue', fontsize=10, ha='center', va='bottom')
+    ax.text(Xdes+0.2,  Ydes-0.1, Zdes+0.01, "İD", color='firebrick', fontsize=10, ha='center', va='top')
 
-      const a=1.0, e=0.5; let i=deg2rad(45), w=deg2rad(90), Om=deg2rad(90);
-      let orbit;
-      function update(){
-        if (orbit) scene.remove(orbit);
-        const f = Array.from({length: 360}, (_,k)=> k/359*2*Math.PI);
-        const geo = new THREE.BufferGeometry().setFromPoints(kepler3D(a,e,i,w,Om,f));
-        orbit = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffffff }));
-        scene.add(orbit);
-      }
-      update();
+    ax.scatter(0,0,0, marker='*', color='w', s=90)
+    ax.scatter(Xp,Yp,Zp, marker='d', color='yellow', edgecolor='w', s=60)
+    ax.text(Xp-0.3, Yp+0.02, Zp+0.05, "Enberi", color='w', fontsize=10)
+    ax.set_xlabel("Kuzey"); ax.set_ylabel("Doğu"); ax.set_zlabel("Bakış Doğrultusu")
+    ax.set_box_aspect((1,1,1))
+    ax.set_facecolor("black")
+    ax.w_xaxis.set_pane_color((0,0,0,1))
+    ax.w_yaxis.set_pane_color((0,0,0,1))
+    ax.w_zaxis.set_pane_color((0,0,0,1))
+    ax.tick_params(colors="white", which='both')
+    return axis, axis_norm, (Xasc,Yasc,Zasc), (Xr,Yr,Zr)
 
-      const slider = document.getElementById(sliderId);
-      const readout = document.getElementById(readoutId);
-      readout.textContent = slider.value;
-      slider.addEventListener('input', ()=>{
-        readout.textContent = slider.value;
-        const val = deg2rad(parseFloat(slider.value));
-        if (targetParam === 'i') i = val;
-        if (targetParam === 'omega') w = val;
-        if (targetParam === 'Om') Om = val;
-        update();
-      });
+def draw_i(i_deg):
+    inc = np.deg2rad(i_deg); w = w0; Om = Om0
+    fig = Figure(figsize=(6,6), dpi=130); ax = fig.add_subplot(111, projection='3d')
+    axis, axis_norm, *_ = plot_base(ax, inc, w, Om)
+    th = np.linspace(0, inc, 40)
+    e1 = np.cross(axis, np.array([0,0,1])); 
+    if np.linalg.norm(e1) < 1e-9: e1 = np.array([1,0,0])
+    e1 = e1/np.linalg.norm(e1)
+    verts = [np.vstack(([0,0,0], *(rodrigues(e1, axis/axis_norm, t) for t in th)))]
+    ax.add_collection3d(Poly3DCollection(verts, facecolor='purple', alpha=0.4, edgecolor='none'))
+    mid_pt = rodrigues(e1-0.1, (axis/axis_norm)-0.1, inc/2.2)
+    ax.text(*mid_pt, 'i', color='purple', fontsize=14, fontstyle='italic', family='serif')
+    display(fig, target="plot-i", clear=True)
 
-      // Yüksek DPI ve boyutlandırma; kaydırmasız tam görünüm
-      function resize(){
-        const rect = canvas.getBoundingClientRect();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        renderer.setPixelRatio(dpr);
-        renderer.setSize(rect.width, rect.height, false);
-        camera.aspect = rect.width / rect.height;
-        camera.updateProjectionMatrix();
-      }
-      const ro = new ResizeObserver(resize); ro.observe(canvas.parentElement);
-      window.addEventListener('orientationchange', resize);
-      resize();
+def draw_omega(omega_deg):
+    inc = inc0; w = np.deg2rad(omega_deg); Om = Om0
+    fig = Figure(figsize=(6,6), dpi=130); ax = fig.add_subplot(111, projection='3d')
+    _,_,(Xasc,Yasc,_),_ = plot_base(ax, inc, w, Om)
+    th = np.linspace(0, Om, 100)
+    r_asc = np.sqrt(Xasc**2 + Yasc**2)
+    Xarc = r_asc*np.cos(th); Yarc = r_asc*np.sin(th); Zarc = np.zeros_like(th)
+    ax.plot(Xarc, Yarc, Zarc, color='seagreen', lw=2)
+    mid = Om/2
+    ax.text(r_asc*np.cos(mid), r_asc*np.sin(mid), 0.02, r"$\Omega$", color='seagreen', fontsize=14)
+    display(fig, target="plot-omega", clear=True)
 
-      function animate(){
-        controls.update();
-        renderer.render(scene, camera);
-        requestAnimationFrame(animate);
-      }
-      animate();
-    }
+def draw_Om(Om_deg):
+    inc = inc0; w = w0; Om = np.deg2rad(Om_deg)
+    fig = Figure(figsize=(6,6), dpi=130); ax = fig.add_subplot(111, projection='3d')
+    plot_base(ax, inc, w, Om)
+    f_asc = (2*np.pi - w) % (2*np.pi)
+    th = np.linspace(0, w, 100)
+    f_arc = (f_asc + th) % (2*np.pi)
+    Xw, Yw, Zw = kepler_3d(sma, ecc, inc, w, Om, f_arc)
+    ax.plot(Xw, Yw, Zw, color='darkorange', lw=2)
+    mid = w/2
+    Xm, Ym, Zm = kepler_3d(sma, ecc, inc, w, Om, np.array([f_asc+mid]))[:,0]
+    ax.text(Xm+0.1, Ym, Zm, r"$\omega$", color='darkorange', fontsize=14)
+    display(fig, target="plot-Om", clear=True)
 
-    // Panelleri başlat
-    setupPanel('canvas-i', 'slider-i', 'i-deg', 'i');
-    setupPanel('canvas-omega', 'slider-omega', 'omega-deg', 'omega');
-    setupPanel('canvas-Om', 'slider-Om', 'Om-deg', 'Om');
-  </script>
+# ilk çizimler
+draw_i(45); draw_omega(90); draw_Om(90)
+
+# olaylar
+@when("input", "#slider-i")
+def _on_i(evt):
+    val = int(evt.target.value)
+    get("#i-val").innerHTML = str(val)
+    draw_i(val)
+
+@when("input", "#slider-omega")
+def _on_omega(evt):
+    val = int(evt.target.value)
+    get("#omega-val").innerHTML = str(val)
+    draw_omega(val)
+
+@when("input", "#slider-Om")
+def _on_Om(evt):
+    val = int(evt.target.value)
+    get("#Om-val").innerHTML = str(val)
+    draw_Om(val)
+  </py-script>
 </body>
 </html>
