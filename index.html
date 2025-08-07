@@ -126,3 +126,131 @@
   </script>
 </body>
 </html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbital Orientation — i, Ω, ω</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:#000;
+      color:#e9eefc;
+    }
+    header{ padding:12px 16px; border-bottom:1px solid #1b2344; background:#000; }
+    h1{ margin:0; font-size:18px; letter-spacing:.2px }
+    main {
+      display:grid;
+      grid-template-columns: 1fr 320px;
+      gap:14px;
+      height: calc(100vh - 46px);
+      padding:12px;
+      box-sizing: border-box;
+    }
+    #sceneWrap{
+      position:relative;
+      border:1px solid #1b2344;
+      border-radius:12px;
+      overflow:hidden;
+      background:#000;
+      display:flex;
+      min-height:0;
+    }
+    #scene{ flex:1; height:100%; }
+    #overlay{ position:absolute; left:10px; top:10px; font-size:13px; color:#d2dcff; background:rgba(20,20,30,.55); padding:8px 10px; border-radius:8px; border:1px solid #1b2344 }
+    .panel { border:1px solid #1b2344; border-radius:12px; padding:12px; background:#0f1530; height: 100%; box-sizing:border-box; display:flex; flex-direction:column; gap:12px; }
+    .slider label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; margin-bottom:6px; color:#e9eefc }
+    .slider input[type=range]{ width:100%; }
+    .value{ font-variant-numeric: tabular-nums; color:#a6c1ff }
+    .chip{ display:inline-block; padding:2px 6px; border-radius:999px; border:1px solid #1b2344; margin-right:6px }
+    .chip.teal{ background:#0a2a2a; color:#9bf2f2 }
+    .chip.green{ background:#0a2f1f; color:#9ff2bf }
+    .chip.orange{ background:#3a2406; color:#ffd29b }
+    canvas{ display:block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Orbital Orientation — i, Ω, ω</h1>
+  </header>
+  <main>
+    <div id="sceneWrap">
+      <div id="overlay">
+        <div><span class="chip teal">Sky plane</span> <span class="chip green">Ω arc</span> <span class="chip orange">ω arc</span></div>
+        <div>▲: Ascending node &nbsp; ▽: Descending node &nbsp; ◆: Periastron</div>
+      </div>
+      <div id="scene"></div>
+    </div>
+    <aside class="panel">
+      <div class="slider">
+        <label for="iRange">Inclination i (°) <span class="value" id="iVal"></span></label>
+        <input id="iRange" type="range" min="0" max="180" step="1" value="45">
+      </div>
+      <div class="slider">
+        <label for="OmRange">Longitude of nodes Ω (°) <span class="value" id="OmVal"></span></label>
+        <input id="OmRange" type="range" min="0" max="360" step="1" value="90">
+      </div>
+      <div class="slider">
+        <label for="wRange">Argument of periastron ω (°) <span class="value" id="wVal"></span></label>
+        <input id="wRange" type="range" min="0" max="360" step="1" value="90">
+      </div>
+    </aside>
+  </main>
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+    const a = 1.0, e = 0.5, N = 512; const fLine = Array.from({length:N}, (_,k)=> k*(2*Math.PI/(N-1)));
+    const wrap = document.getElementById('sceneWrap'), host = document.getElementById('scene');
+    const iRange  = document.getElementById('iRange'), OmRange = document.getElementById('OmRange'), wRange  = document.getElementById('wRange');
+    const iVal  = document.getElementById('iVal'), OmVal = document.getElementById('OmVal'), wVal  = document.getElementById('wVal');
+    const setLabels=()=>{ iVal.textContent=iRange.value+'°'; OmVal.textContent=OmRange.value+'°'; wVal.textContent=wRange.value+'°'; }; setLabels();
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x000000);
+    const camera = new THREE.PerspectiveCamera(50, 16/9, 0.01, 100); camera.position.set(3.5, 3.2, 2.6);
+    const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); host.appendChild(renderer.domElement);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, .9));
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0x1fb4b4, transparent:true, opacity:0.12, side:THREE.DoubleSide });
+    const skyGeom = new THREE.PlaneGeometry(3.2, 3.2, 1, 1); scene.add(new THREE.Mesh(skyGeom, skyMat));
+    const axisLen = 1.4;
+    function makeArrow(dir,col){const ar = new THREE.ArrowHelper(dir.clone().normalize(), new THREE.Vector3(0,0,0), axisLen, col, 0.08, 0.04);scene.add(ar);return ar;}
+    const north = makeArrow(new THREE.Vector3(1,0,0), 0xaaaaaa); makeArrow(new THREE.Vector3(-1,0,0), 0x666666); makeArrow(new THREE.Vector3(0,0,1), 0xaaaaaa);
+    function makeLabel(text,size=28){ const c=document.createElement('canvas'); const ctx=c.getContext('2d'); const pad=4; ctx.font=`500 ${size}px system-ui`; const w=Math.ceil(ctx.measureText(text).width)+pad*2; const h=size+pad*2; c.width=w; c.height=h; ctx.font=`500 ${size}px system-ui`; ctx.fillStyle='rgba(255,255,255,0.95)'; ctx.textBaseline='middle'; ctx.textAlign='center'; ctx.fillText(text,w/2,h/2); const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false; const mat=new THREE.SpriteMaterial({ map: tex, transparent:true }); const sp=new THREE.Sprite(mat); const scale=0.4; sp.scale.set((w/h)*scale, 1*scale, 1); return sp; }
+    const labelNorth=makeLabel('North'), labelEast=makeLabel('East'), labelLoS=makeLabel('LoS');
+    scene.add(labelNorth,labelEast,labelLoS);
+    const Rz = (t)=>{const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set(c,-s,0,s,c,0,0,0,1);};
+    const Rx = (t)=>{const c=Math.cos(t), s=Math.sin(t); return new THREE.Matrix3().set(1,0,0,0,c,-s,0,s,c);};
+    const applyM3 = (m, v)=>{const e=m.elements; const x=v.x, y=v.y, z=v.z; return new THREE.Vector3(e[0]*x+e[1]*y+e[2]*z, e[3]*x+e[4]*y+e[5]*z, e[6]*x+e[7]*y+e[8]*z);};
+    const kepler3d=(a,e,inc,w,Om,f)=>{const r=a*(1-e*e)/(1+ e*Math.cos(f)); const x=r*Math.cos(f), y=r*Math.sin(f), z=0; const M=new THREE.Matrix3(); const m=new THREE.Matrix3(); M.copy(Rz(Om)); m.copy(Rx(inc)); M.multiply(m); m.copy(Rz(w)); M.multiply(m); return applyM3(M,new THREE.Vector3(x,y,z));};
+    const rodrigues=(v,k,th)=>{const vc=v.clone(); const kc=k.clone(); const c=Math.cos(th), s=Math.sin(th); const cross=new THREE.Vector3().copy(kc).cross(vc).multiplyScalar(s); const dot=kc.dot(vc); return vc.multiplyScalar(c).add(cross).add(kc.multiplyScalar(dot*(1-c)));};
+    const orbit=new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color:0xffffff })); scene.add(orbit);
+    const nodeLine=new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color:0xaaaaaa, dashSize:0.08, gapSize:0.05 })); scene.add(nodeLine);
+    const asc=new THREE.Mesh(new THREE.SphereGeometry(0.04,16,16),new THREE.MeshBasicMaterial({color:0x3fa9ff}));
+    const des=new THREE.Mesh(new THREE.SphereGeometry(0.04,16,16),new THREE.MeshBasicMaterial({color:0xd24b4b})); scene.add(asc,des);
+    const peri=new THREE.Mesh(new THREE.OctahedronGeometry(0.045,0),new THREE.MeshBasicMaterial({color:0xffe073})); scene.add(peri);
+    const OmArc=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({ color:0x2bb36c })); scene.add(OmArc);
+    const wArc=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({ color:0xffa142 })); scene.add(wArc);
+    let wedgeMesh=new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color:0x9b59ff, opacity:0.35, transparent:true, side:THREE.DoubleSide })); scene.add(wedgeMesh);
+    const kvec=new THREE.Vector3(0,0,1);
+    function update(){ setLabels(); const inc=THREE.MathUtils.degToRad(+iRange.value), w=THREE.MathUtils.degToRad(+wRange.value), Om=THREE.MathUtils.degToRad(+OmRange.value);
+      const pts=new Float32Array(3*N); for(let i=0;i<N;i++){const f=fLine[i]; const p=kepler3d(a,e,inc,w,Om,f); pts[3*i]=p.x; pts[3*i+1]=p.y; pts[3*i+2]=p.z;} orbit.geometry.setAttribute('position',new THREE.BufferAttribute(pts,3));
+      peri.position.copy(kepler3d(a,e,inc,w,Om,0));
+      const n=new THREE.Vector3(Math.sin(inc)*Math.sin(Om),-Math.sin(inc)*Math.cos(Om),Math.cos(inc));
+      const axis=new THREE.Vector3().copy(kvec).cross(n); const sin_i=axis.length(); let lhat=new THREE.Vector3(1,0,0); if(sin_i>1e-8){lhat.copy(axis).multiplyScalar(1/sin_i);}
+      const L=1.6; nodeLine.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array([-L*lhat.x,-L*lhat.y,-L*lhat.z,L*lhat.x,L*lhat.y,L*lhat.z]),3)); nodeLine.computeLineDistances();
+      const f_asc=(2*Math.PI-(w%(2*Math.PI)))%(2*Math.PI); const Pa=kepler3d(a,e,inc,w,Om,f_asc), Pd=kepler3d(a,e,inc,w,Om,(f_asc+Math.PI)%(2*Math.PI)); asc.position.copy(Pa); des.position.copy(Pd);
+      const rasc=Math.hypot(Pa.x,Pa.y); const Mpts=new Float32Array(3*120); for(let k=0;k<120;k++){const t=(k/119)*Om; Mpts[3*k]=rasc*Math.cos(t); Mpts[3*k+1]=rasc*Math.sin(t); Mpts[3*k+2]=0;} OmArc.geometry.setAttribute('position',new THREE.BufferAttribute(Mpts,3));
+      const wPts=new Float32Array(3*180); for(let k=0;k<180;k++){const t=(k/179)*w; const f=(f_asc+t)%(2*Math.PI); const Q=kepler3d(a,e,inc,w,Om,f); wPts[3*k]=Q.x; wPts[3*k+1]=Q.y; wPts[3*k+2]=Q.z;} wArc.geometry.setAttribute('position',new THREE.BufferAttribute(wPts,3));
+      const e1=new THREE.Vector3().copy(lhat).cross(kvec); if(sin_i<1e-8||e1.length()<1e-8){wedgeMesh.geometry.dispose(); wedgeMesh.geometry=new THREE.BufferGeometry();} else {e1.normalize(); const verts=[]; const center=new THREE.Vector3(0,0,0); let prev=null; for(let s=0;s<=64;s++){const th=(s/64)*inc; const p=rodrigues(e1.clone().multiplyScalar(1.05),lhat,th); if(prev){verts.push(center.x,center.y,center.z,prev.x,prev.y,prev.z,p.x,p.y,p.z);} prev=p;} wedgeMesh.geometry.dispose(); wedgeMesh.geometry=new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(new Float32Array(verts),3));}
+      labelNorth.position.set(axisLen,0,0); labelEast.position.set(0,axisLen,0); labelLoS.position.set(0,0,axisLen);
+    }
+    let isDown=false,lx=0,ly=0,theta=0.8,phi=0.9,R=4.3; function updateCam(){const x=R*Math.sin(theta)*Math.cos(phi),y=R*Math.sin(theta)*Math.sin(phi),z=R*Math.cos(theta); camera.position.set(x,y,z); camera.lookAt(0,0,0);} updateCam();
+    host.addEventListener('mousedown',e=>{isDown=true;lx=e.clientX;ly=e.clientY;}); window.addEventListener('mouseup',()=>{isDown=false;}); window.addEventListener('mousemove',e=>{if(!isDown)return;const dx=(e.clientX-lx)/200,dy=(e.clientY-ly)/200;lx=e.clientX;ly=e.clientY;phi-=dx;theta=THREE.MathUtils.clamp(theta-dy,0.001,Math.PI-0.001);updateCam();}); host.addEventListener('wheel',e=>{e.preventDefault();R=THREE.MathUtils.clamp(R+(e.deltaY>0?0.2:-0.2),2.2,10);updateCam();},{passive:false});
+    [iRange,OmRange,wRange].forEach(el=>el.addEventListener('input',update)); function resize(){const r=wrap.getBoundingClientRect(); const h=r.height; renderer.setSize(r.width,h); camera.aspect=r.width/h; camera.updateProjectionMatrix();} window.addEventListener('resize',()=>resize()); resize(); update();
+    (function loop(){renderer.render(scene,camera); requestAnimationFrame(loop);})();
+  </script>
+</body>
+</html>
