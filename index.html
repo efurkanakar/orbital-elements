@@ -2,112 +2,240 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Orbit Elements Demo</title>
+  <title>Orbital Elements Demo</title>
+  <script src="https://cdn.plot.ly/plotly-2.30.1.min.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #f0f0f0; }
+    body { margin:0; font-family:sans-serif; }
     #controls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(255,255,255,0.8);
-      padding: 10px;
-      border-radius: 4px;
-      font-family: sans-serif;
+      position:absolute; top:10px; left:10px; width:250px;
+      background:rgba(255,255,255,0.9); padding:10px; border-radius:4px;
     }
-    #controls label, #controls span { font-size: 14px; }
-    #controls input { width: 200px; }
+    #graphs {
+      position:absolute; top:0; left:270px; right:0; bottom:0;
+      display:flex; flex-direction:row;
+    }
+    .graph { flex:1; }
+    .slider-group { margin-bottom:10px; }
+    label { display:block; font-size:14px; margin-bottom:4px; }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <div>
-      <label for="incSlider">Inclination i°:</label>
-      <input type="range" id="incSlider" min="0" max="180" value="45">
-      <span id="incValue">45°</span>
-    </div>
-    <!-- Add more sliders for ω, Ω as needed -->
+
+<div id="controls">
+  <div class="slider-group">
+    <label for="inc">Inclination i (°): <span id="incVal">45</span></label>
+    <input type="range" id="inc" min="0" max="180" value="45">
   </div>
+  <div class="slider-group">
+    <label for="omega">Argument ω (°): <span id="omegaVal">90</span></label>
+    <input type="range" id="omega" min="0" max="360" value="90">
+  </div>
+  <div class="slider-group">
+    <label for="Om">Node Ω (°): <span id="OmVal">90</span></label>
+    <input type="range" id="Om" min="0" max="360" value="90">
+  </div>
+</div>
 
-  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
-  <script>
-    // Kepler & rotation functions ported to JS
-    function kepler3d(a,e,inc,w,Om,fArr) {
-      const pts = [];
-      const cos= Math.cos, sin = Math.sin;
-      for(let f of fArr) {
-        const r = a*(1-e*e)/(1+e*cos(f));
-        let x = r*cos(f), y = r*sin(f), z = 0;
-        // rotation: Rz(Om)*Rx(inc)*Rz(w)
-        // apply Z(w)
-        let X1 = x*cos(w) - y*sin(w);
-        let Y1 = x*sin(w) + y*cos(w);
-        let Z1 = z;
-        // apply X(inc)
-        let X2 = X1;
-        let Y2 = Y1*cos(inc) - Z1*sin(inc);
-        let Z2 = Y1*sin(inc) + Z1*cos(inc);
-        // apply Z(Om)
-        let X3 = X2*cos(Om) - Y2*sin(Om);
-        let Y3 = X2*sin(Om) + Y2*cos(Om);
-        let Z3 = Z2;
-        pts.push(new THREE.Vector3(X3, Y3, Z3));
-      }
-      return pts;
+<div id="graphs">
+  <div id="graph3d" class="graph"></div>
+  <div id="graph2d" class="graph"></div>
+</div>
+
+<script>
+// ——— Matematiksel Fonksiyonlar ———
+function kepler3d(a,e,inc,w,Om,f) {
+  const r = a*(1-e*e)/(1+e*Math.cos(f));
+  const x = r*Math.cos(f), y = r*Math.sin(f), z = 0;
+  // Rz(Ω)·Rx(inc)·Rz(w)·[x;y;z]
+  const cOm = Math.cos(Om), sOm = Math.sin(Om);
+  const cin = Math.cos(inc), sin = Math.sin(inc);
+  const cw = Math.cos(w), sw = Math.sin(w);
+  // first rotation by w around z:
+  let X = x*cw - y*sw, Y = x*sw + y*cw, Z = 0;
+  // then Rx(inc):
+  let Y2 = Y*cin - Z*sin, Z2 = Y*sin + Z*cin, X2 = X;
+  // then Rz(Om):
+  let X3 = X2*cOm - Y2*sOm, Y3 = X2*sOm + Y2*cOm, Z3 = Z2;
+  return [X3,Y3,Z3];
+}
+function solveKepler(M,e) {
+  let E=M, dE=1;
+  for(let i=0;i<50 && Math.abs(dE)>1e-8;i++){
+    dE=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+    E-=dE;
+  }
+  return E;
+}
+
+// ——— Veri Hazırlığı ———
+const Nf=400, a=1, e=0.5;
+const Mseq = Array.from({length:Nf},(_,i)=>2*Math.PI*i/(Nf-1));
+const fTrue = Mseq.map(M=>{
+  const E=solveKepler(M,e);
+  return 2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),
+                      Math.sqrt(1-e)*Math.cos(E/2));
+});
+
+// orbit çizgisi
+const fLine = Array.from({length:500},(_,i)=>2*Math.PI*i/499);
+
+// ——— Boş layout ———
+const layout3d = {
+  scene:{aspectmode:'cube', xaxis:{range:[-1.5,1.5], title:'North'},
+         yaxis:{range:[-1.5,1.5], title:'East'},
+         zaxis:{range:[-1.5,1.5], title:'LoS'}},
+  margin:{l:0,r:0,b:0,t:30}, title:'3D Orbit Geometry'
+};
+const layout2d = {
+  xaxis:{range:[-1.5,1.5], autorange:false, title:'ΔRA'},
+  yaxis:{range:[-1.5,1.5], autorange:false, title:'ΔDec'},
+  margin:{l:40,r:10,b:40,t:30}, title:'Sky-Plane Projection'
+};
+
+// ——— İlk Grafikler ———
+Plotly.newPlot('graph3d', [], layout3d, {displaylogo:false});
+Plotly.newPlot('graph2d', [], layout2d, {displaylogo:false});
+
+// ——— Güncelleme Fonksiyonu ———
+function updatePlots(){
+  const i = parseFloat(inc.value)*Math.PI/180;
+  const w = parseFloat(omega.value)*Math.PI/180;
+  const Om= parseFloat(Om.value)*Math.PI/180;
+  incVal.textContent = inc.value;
+  omegaVal.textContent = omega.value;
+  OmVal.textContent = Om.value;
+
+  // 1) 3D orbit hattı
+  const orb3 = fLine.map(f=>kepler3d(a,e,i,w,Om,f));
+  const Xo=orb3.map(v=>v[0]), Yo=orb3.map(v=>v[1]), Zo=orb3.map(v=>v[2]);
+
+  // 2) Orbital plane mesh
+  const U = Array.from({length:15},(_,j)=>-1.2+2.4*j/14);
+  let planeX=[], planeY=[], planeZ=[];
+  U.forEach(u=>U.forEach(v=>{
+    planeX.push(u); planeY.push(v); planeZ.push(0);
+  }));
+
+  // 3) ascending/descending node, periastron, arcs, wedge
+  const fAsc = (2*Math.PI - w)%(2*Math.PI);
+  const [Xa,Ya,Za] = kepler3d(a,e,i,w,Om,fAsc);
+  const [Xd,Yd,Zd] = kepler3d(a,e,i,w,Om,fAsc+Math.PI);
+  const [Xp, Yp, Zp] = kepler3d(a,e,i,w,Om,0);
+
+  // Ω arc
+  const OmArc = [];
+  for(let t=0;t<=60;t++){
+    const th=Om*t/60;
+    OmArc.push([1.05*Math.cos(th),1.05*Math.sin(th),0]);
+  }
+  // ω arc
+  const sign = i<Math.PI/2?1:-1;
+  const wArc=[];
+  for(let t=0;t<=60;t++){
+    const th = sign* w*t/60;
+    const f = (fAsc + th)%(2*Math.PI);
+    wArc.push( kepler3d(a,e,i,w,Om,f) );
+  }
+  // inclination wedge
+  let wedge3=[];
+  const k=[0,0,1], n=[Math.sin(i)*Math.sin(Om),-Math.sin(i)*Math.cos(Om),Math.cos(i)];
+  const axis = [ k[1]*n[2]-k[2]*n[1], k[2]*n[0]-k[0]*n[2], k[0]*n[1]-k[1]*n[0] ];
+  const sin_i = Math.hypot(...axis);
+  if(sin_i>1e-6){
+    const lhat = axis.map(v=>v/sin_i);
+    const e1 = [ lhat[1]*k[2]-lhat[2]*k[1],
+                 lhat[2]*k[0]-lhat[0]*k[2],
+                 lhat[0]*k[1]-lhat[1]*k[0] ];
+    const norm = Math.hypot(...e1);
+    e1.forEach((v,i)=>e1[i]/=norm);
+    for(let t=0;t<=40;t++){
+      const th = i*t/40;
+      // Rodrigues
+      const v0 = e1;
+      const vcos = v0.map(v=>v*Math.cos(th));
+      const vcross = [
+        k[1]*v0[2]-k[2]*v0[1],
+        k[2]*v0[0]-k[0]*v0[2],
+        k[0]*v0[1]-k[1]*v0[0]
+      ].map(v=>v*Math.sin(th));
+      const vdot = (k[0]*v0[0]+k[1]*v0[1]+k[2]*v0[2])*(1-Math.cos(th));
+      wedge3.push([
+        vcos[0]+vcross[0]+k[0]*vdot,
+        vcos[1]+vcross[1]+k[1]*vdot,
+        vcos[2]+vcross[2]+k[2]*vdot
+      ]);
     }
+  }
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(3,3,3);
-    camera.lookAt(0,0,0);
-    const renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // Orbit path
-    const f_line = Array.from({length:360},(_,i)=>i*(Math.PI*2/359));
-    const a=1, e=0.5;
-    let orbitPts = kepler3d(a,e,Math.PI/4,Math.PI/2,Math.PI/2,f_line);
-    let orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPts);
-    let orbitMat = new THREE.LineBasicMaterial({ color:0x000000 });
-    let orbitLine = new THREE.LineLoop(orbitGeo, orbitMat);
-    scene.add(orbitLine);
-
-    // Orbital plane
-    let planeGeom = new THREE.PlaneGeometry(2.4,2.4);
-    let planeMat = new THREE.MeshBasicMaterial({color:0x6495ED, side:THREE.DoubleSide, transparent:true, opacity:0.4});
-    let plane = new THREE.Mesh(planeGeom, planeMat);
-    scene.add(plane);
-
-    // Axes
-    [[1,0,0],[0,1,0],[0,0,1]].forEach(dir=>{
-      let arrow = new THREE.ArrowHelper(new THREE.Vector3(...dir), new THREE.Vector3(0,0,0),1.2,0x555555,0.1,0.05);
-      scene.add(arrow);
+  // Traces
+  const traces3d = [
+    { x:orb3.map(v=>v[0]), y:orb3.map(v=>v[1]), z:orb3.map(v=>v[2]),
+      type:'scatter3d', mode:'lines', line:{width:2,color:'black'}, name:'Orbit' },
+    { x:planeX, y:planeY, z:planeZ, type:'mesh3d',
+      opacity:0.4, color:'cornflowerblue', showscale:false, name:'Plane' },
+    { x:[0],y:[0],z:[0], type:'scatter3d', mode:'markers',
+      marker:{size:6,color:'k'}, name:'Focus' },
+    { x:[Xa],y:[Ya],z:[Za], type:'scatter3d', mode:'markers',
+      marker:{symbol:'triangle-up',size:6,color:'dodgerblue'}, name:'Asc node' },
+    { x:[Xd],y:[Yd],z:[Zd], type:'scatter3d', mode:'markers',
+      marker:{symbol:'triangle-down',size:6,color:'firebrick'}, name:'Des node' },
+    { x:[Xp],y:[Yp],z:[Zp], type:'scatter3d', mode:'markers',
+      marker:{symbol:'diamond',size:6,color:'gold'}, name:'Periastron' },
+    { x:OmArc.map(v=>v[0]),y:OmArc.map(v=>v[1]),z:OmArc.map(v=>v[2]),
+      type:'scatter3d', mode:'lines', line:{width:3,color:'seagreen'}, name:'Ω arc' },
+    { x:wArc.map(v=>v[0]),y:wArc.map(v=>v[1]),z:wArc.map(v=>v[2]),
+      type:'scatter3d', mode:'lines', line:{width:3,color:'darkorange'}, name:'ω arc' }
+  ];
+  if(wedge3.length){
+    traces3d.push({
+      x:wedge3.map(v=>v[0]), y:wedge3.map(v=>v[1]), z:wedge3.map(v=>v[2]),
+      type:'mesh3d', opacity:0.35, color:'cyan', name:'Inclination wedge'
     });
+  }
 
-    // Handle resize
-    window.addEventListener('resize',()=>{
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect=window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
+  // Update 3D
+  Plotly.react('graph3d', traces3d, layout3d, {displayModeBar:false});
+
+  // 2D projection
+  const trace2d = [
+    { x:orb3.map(v=>-v[1]), y:orb3.map(v=>v[0]),
+      mode:'lines', type:'scatter', line:{color:'black'}, name:'Orbit' },
+    { x:[-Ya], y:[Xa], mode:'markers', type:'scatter',
+      marker:{symbol:'triangle-up',size:6,color:'dodgerblue'}, name:'Asc' },
+    { x:[-Yd], y:[Xd], mode:'markers', type:'scatter',
+      marker:{symbol:'triangle-down',size:6,color:'firebrick'}, name:'Des' },
+    { x:[-Yp], y:[Xp], mode:'markers', type:'scatter',
+      marker:{symbol:'diamond',size:6,color:'gold'}, name:'Peri' },
+    { x:[-0.0], y:[0.0], mode:'markers', type:'scatter',
+      marker:{symbol:'star',size:8,color:'k'}, name:'Focus' },
+    { x:OmArc.map(v=>v[0]), y:OmArc.map(v=>v[1]),
+      mode:'lines', type:'scatter', line:{width:3,color:'seagreen'}, name:'Ω arc' },
+    { x:wArc.map(v=>-v[1]), y:wArc.map(v=>v[0]),
+      mode:'lines', type:'scatter', line:{width:3,color:'darkorange'}, name:'ω arc' }
+  ];
+  if(wedge3.length){
+    const wedge2dX = [0].concat(wedge3.map(v=>-v[1])).concat([0]);
+    const wedge2dY = [0].concat(wedge3.map(v=>v[0])).concat([0]);
+    trace2d.push({
+      x:wedge2dX, y:wedge2dY, fill:'toself', type:'scatter',
+      fillcolor:'cyan', opacity:0.3, line:{width:0}, name:'Inclination wedge'
     });
+  }
 
-    // Slider control
-    const incSlider = document.getElementById('incSlider');
-    const incValue  = document.getElementById('incValue');
-    incSlider.oninput = ()=>{
-      let deg=+incSlider.value;
-      incValue.textContent=deg+'°';
-      let inc=deg*Math.PI/180;
-      plane.rotation.x = inc;
-      orbitLine.rotation.x = inc;
-    };
+  Plotly.react('graph2d', trace2d, layout2d, {displayModeBar:false});
+}
 
-    // Render loop
-    (function animate(){
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    })();
-  </script>
+// ——— Başlangıç render ———
+const inc = document.getElementById('inc'),
+      omega = document.getElementById('omega'),
+      Om = document.getElementById('Om'),
+      incVal = document.getElementById('incVal'),
+      omegaVal = document.getElementById('omegaVal'),
+      OmVal = document.getElementById('OmVal');
+
+inc.oninput = omega.oninput = Om.oninput = updatePlots;
+updatePlots();
+
+</script>
 </body>
 </html>
