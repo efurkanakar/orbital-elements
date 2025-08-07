@@ -4,7 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Orbital Elements — i, ω, Ω</title>
+
+  <!-- PyScript -->
   <script type="module" src="https://pyscript.net/latest/pyscript.js"></script>
+  <py-config type="json">
+    {
+      "packages": ["numpy", "matplotlib"],
+      "plugins": ["matplotlib"]
+    }
+  </py-config>
+
   <style>
     :root { color-scheme: dark; }
     html,body{height:100%;margin:0;background:#000;font-family:system-ui,Segoe UI,Roboto,Arial}
@@ -16,10 +25,9 @@
     .controls{padding:8px 12px;background:#0b0b0b;color:#eee;border-top:1px solid #222}
     .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:6px}
     input[type=range]{width:100%}
+    /* PyScript terminallerini gizle (üstte yazı çıkmasın) */
+    py-terminal { display:none; }
   </style>
-  <py-config>
-    packages = ["numpy","matplotlib"]
-  </py-config>
 </head>
 <body>
   <div class="wrap">
@@ -48,15 +56,11 @@
 
   <py-script>
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from pyscript import display, when, get
-from math import pi
 
-# ---- ortak sabitler
+# --- sabitler
 sma, ecc = 1.0, 0.5
 inc0, w0, Om0 = np.deg2rad([45, 90, 90])
 f_line = np.linspace(0, 2*np.pi, 200)
@@ -83,6 +87,14 @@ def rodrigues(v, k, th):
     v, k = np.asarray(v), np.asarray(k)
     return v*np.cos(th) + np.cross(k, v)*np.sin(th) + k*np.dot(k, v)*(1-np.cos(th))
 
+def style_axes(ax):
+    ax.set_facecolor("black")
+    for a in (ax.w_xaxis, ax.w_yaxis, ax.w_zaxis):
+        a.set_pane_color((0,0,0,1))
+    ax.tick_params(colors="white", which='both')
+    ax.set_xlabel("Kuzey"); ax.set_ylabel("Doğu"); ax.set_zlabel("Bakış Doğrultusu")
+    ax.set_box_aspect((1,1,1))
+
 def plot_base(ax, inc, w, Om):
     Xr, Yr, Zr = kepler_3d(sma, ecc, inc, w, Om, f_line)
     k_vec = np.array([0,0,1])
@@ -98,10 +110,7 @@ def plot_base(ax, inc, w, Om):
         ax.quiver(0,0,0, *vec, color='gray', arrow_length_ratio=0.07)
         ax.text(*(1.05*vec), lbl, color='gray')
 
-    verts = []
-    center = np.array([0,0,0])
-    for i in range(len(Xr)-1):
-        verts.append([center, [Xr[i],Yr[i],Zr[i]], [Xr[i+1],Yr[i+1],Zr[i+1]]])
+    verts = [[ [0,0,0], [Xr[i],Yr[i],Zr[i]], [Xr[i+1],Yr[i+1],Zr[i+1]] ] for i in range(len(Xr)-1)]
     ax.add_collection3d(Poly3DCollection(verts, facecolor='lightgray', alpha=0.1, edgecolor='none'))
     ax.plot(Xr, Yr, Zr, 'w', lw=1)
     ax.plot(Xnd, Ynd, Znd, '--', color='gray', lw=1)
@@ -118,19 +127,14 @@ def plot_base(ax, inc, w, Om):
     ax.scatter(0,0,0, marker='*', color='w', s=90)
     ax.scatter(Xp,Yp,Zp, marker='d', color='yellow', edgecolor='w', s=60)
     ax.text(Xp-0.3, Yp+0.02, Zp+0.05, "Enberi", color='w', fontsize=10)
-    ax.set_xlabel("Kuzey"); ax.set_ylabel("Doğu"); ax.set_zlabel("Bakış Doğrultusu")
-    ax.set_box_aspect((1,1,1))
-    ax.set_facecolor("black")
-    ax.w_xaxis.set_pane_color((0,0,0,1))
-    ax.w_yaxis.set_pane_color((0,0,0,1))
-    ax.w_zaxis.set_pane_color((0,0,0,1))
-    ax.tick_params(colors="white", which='both')
-    return axis, axis_norm, (Xasc,Yasc,Zasc), (Xr,Yr,Zr)
+    style_axes(ax)
+    return axis, axis_norm, (Xasc,Yasc,Zasc)
 
 def draw_i(i_deg):
     inc = np.deg2rad(i_deg); w = w0; Om = Om0
-    fig = Figure(figsize=(6,6), dpi=130); ax = fig.add_subplot(111, projection='3d')
-    axis, axis_norm, *_ = plot_base(ax, inc, w, Om)
+    fig = plt.figure(figsize=(6,6), dpi=120)
+    ax = fig.add_subplot(111, projection='3d')
+    axis, axis_norm, _ = plot_base(ax, inc, w, Om)
     th = np.linspace(0, inc, 40)
     e1 = np.cross(axis, np.array([0,0,1])); 
     if np.linalg.norm(e1) < 1e-9: e1 = np.array([1,0,0])
@@ -139,23 +143,25 @@ def draw_i(i_deg):
     ax.add_collection3d(Poly3DCollection(verts, facecolor='purple', alpha=0.4, edgecolor='none'))
     mid_pt = rodrigues(e1-0.1, (axis/axis_norm)-0.1, inc/2.2)
     ax.text(*mid_pt, 'i', color='purple', fontsize=14, fontstyle='italic', family='serif')
-    display(fig, target="plot-i", clear=True)
+    display(fig, target="plot-i", clear=True); plt.close(fig)
 
 def draw_omega(omega_deg):
     inc = inc0; w = np.deg2rad(omega_deg); Om = Om0
-    fig = Figure(figsize=(6,6), dpi=130); ax = fig.add_subplot(111, projection='3d')
-    _,_,(Xasc,Yasc,_),_ = plot_base(ax, inc, w, Om)
+    fig = plt.figure(figsize=(6,6), dpi=120)
+    ax = fig.add_subplot(111, projection='3d')
+    _,_,(Xasc,Yasc,_) = plot_base(ax, inc, w, Om)
     th = np.linspace(0, Om, 100)
     r_asc = np.sqrt(Xasc**2 + Yasc**2)
     Xarc = r_asc*np.cos(th); Yarc = r_asc*np.sin(th); Zarc = np.zeros_like(th)
     ax.plot(Xarc, Yarc, Zarc, color='seagreen', lw=2)
     mid = Om/2
     ax.text(r_asc*np.cos(mid), r_asc*np.sin(mid), 0.02, r"$\Omega$", color='seagreen', fontsize=14)
-    display(fig, target="plot-omega", clear=True)
+    display(fig, target="plot-omega", clear=True); plt.close(fig)
 
 def draw_Om(Om_deg):
     inc = inc0; w = w0; Om = np.deg2rad(Om_deg)
-    fig = Figure(figsize=(6,6), dpi=130); ax = fig.add_subplot(111, projection='3d')
+    fig = plt.figure(figsize=(6,6), dpi=120)
+    ax = fig.add_subplot(111, projection='3d')
     plot_base(ax, inc, w, Om)
     f_asc = (2*np.pi - w) % (2*np.pi)
     th = np.linspace(0, w, 100)
@@ -165,29 +171,24 @@ def draw_Om(Om_deg):
     mid = w/2
     Xm, Ym, Zm = kepler_3d(sma, ecc, inc, w, Om, np.array([f_asc+mid]))[:,0]
     ax.text(Xm+0.1, Ym, Zm, r"$\omega$", color='darkorange', fontsize=14)
-    display(fig, target="plot-Om", clear=True)
+    display(fig, target="plot-Om", clear=True); plt.close(fig)
 
 # ilk çizimler
 draw_i(45); draw_omega(90); draw_Om(90)
 
 # olaylar
+from pyscript import when, get
 @when("input", "#slider-i")
 def _on_i(evt):
-    val = int(evt.target.value)
-    get("#i-val").innerHTML = str(val)
-    draw_i(val)
+    val = int(evt.target.value); get("#i-val").innerHTML = str(val); draw_i(val)
 
 @when("input", "#slider-omega")
 def _on_omega(evt):
-    val = int(evt.target.value)
-    get("#omega-val").innerHTML = str(val)
-    draw_omega(val)
+    val = int(evt.target.value); get("#omega-val").innerHTML = str(val); draw_omega(val)
 
 @when("input", "#slider-Om")
 def _on_Om(evt):
-    val = int(evt.target.value)
-    get("#Om-val").innerHTML = str(val)
-    draw_Om(val)
+    val = int(evt.target.value); get("#Om-val").innerHTML = str(val); draw_Om(val)
   </py-script>
 </body>
 </html>
